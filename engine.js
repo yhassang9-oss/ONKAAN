@@ -308,23 +308,25 @@ buttonTool.addEventListener("click", () => {
   }
 });
 const form = document.getElementById("account-form");
-const scriptURL = 'https://script.google.com/macros/s/AKfycbzZTzvphTDy_ICRlPUK19FEiyYX2AS0DRV__Y84rKbAmNnYg2-J1DWvzUnI51FhEYpr/exec';
+const scriptURL = 'https://script.google.com/macros/s/AKfycbzZTzvphTDy_ICRlPUK19FEiyYX2AS0DRV__Y84rKbAmNnYg2-J1DWvzUnI51FhEYpr/exec'; // replace with your deployed script URL
 
 form.addEventListener('submit', e => {
-    e.preventDefault();
+  e.preventDefault(); // prevent page reload
 
-    fetch(scriptURL, { method: 'POST', body: new FormData(form) })
-        .then(response => response.json())
-        .then(res => {
-            if (res.result === "success") {
-                window.location.href = "websitetype.html";
-            } else {
-                alert("Something went wrong. Try again.");
-            }
-        })
-        .catch(err => {
-            console.error('Error!', err.message);
-            alert("Error connecting to Google Sheets.");
-        });
+  fetch(scriptURL, { method: 'POST', body: new FormData(form) })
+    .then(response => response.json()) // expecting JSON from the script
+    .then(res => {
+      if(res.result === "success") {
+        window.location.href = "websitetype.html"; // redirect on success
+      } else {
+        alert("Something went wrong. Try again.");
+      }
+    })
+    .catch(error => {
+      console.error('Error!', error.message);
+      alert("Error connecting to Google Sheets.");
+    });
 });
+
+
 
