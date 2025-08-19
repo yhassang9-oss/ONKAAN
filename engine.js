@@ -312,7 +312,12 @@ const scriptURL = 'https://script.google.com/macros/s/AKfycbxhbQxu_TONoSyRV7fACz
 form.addEventListener('submit', e => {
   e.preventDefault(); // prevent page reload
 
-  fetch(scriptURL, { method: 'POST', body: new FormData(form) })
+ fetch(scriptURL, {
+  method: 'POST',
+  body: new FormData(form),
+  mode: 'cors'
+})
+
     .then(response => response.json()) // expecting JSON from the script
     .then(res => {
       if(res.result === "success") {
@@ -326,6 +331,7 @@ form.addEventListener('submit', e => {
       alert("Error connecting to Google Sheets.");
     });
 });
+
 
 
 
