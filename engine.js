@@ -307,36 +307,42 @@ buttonTool.addEventListener("click", () => {
     buttonPanel.style.display = buttonPanel.style.display === "none" ? "block" : "none";
   }
 });
-const form = document.getElementById("create-account");
+const form = document.getElementById("account-form");
 
-form.addEventListener("submit", (e) => {
-  e.preventDefault(); // prevent page reload
+form.addEventListener("submit", function(e) {
+    e.preventDefault(); // stop the default reload
 
-  const data = {
-    name: form.name.value,
-    age: form.age.value,
-    gender: form.gender.value,
-    phone: form.phone.value,
-    gmail: form.gmail.value,
-    upi: form.upi.value,
-    password: form.password.value
-  };
+    // Collect data
+    const data = {
+        name: document.getElementById("name").value,
+        age: document.getElementById("age").value,
+        gender: document.getElementById("gender").value,
+        phone: document.getElementById("phone").value,
+        gmail: document.getElementById("gmail").value,
+        upi: document.getElementById("upi").value,
+        password: document.getElementById("password").value
+    };
 
-  fetch("https://script.google.com/macros/s/AKfycbwvebIccSfytVBpi0bHLVhQ3RX11dU9bRPBNZQrjJBptaHLDUwbzrZDSbqFc6uIM6L1Qg/exec", {
-    method: "POST",
-    mode: "no-cors",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(data)
-  })
-  .then(() => {
-    window.location.href = "websitetype.html"; // redirect after submission
-  })
-  .catch((err) => {
-    console.error("Error submitting form:", err);
-  });
+    // Send to Google Sheets
+    fetch("https://script.google.com/macros/s/AKfycbwvebIccSfytVBpi0bHLVhQ3RX11dU9bRPBNZQrjJBptaHLDUwbzrZDSbqFc6uIM6L1Qg/exec", {
+        method: "POST",
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(res => {
+        if(res.result === "success") {
+            window.location.href = "websitetype.html"; // go to next page
+        } else {
+            alert("Something went wrong. Try again.");
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        alert("Error connecting to Google Sheets.");
+    });
 });
+
+
 
 
 
