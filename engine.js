@@ -308,8 +308,7 @@ buttonTool.addEventListener("click", () => {
   }
 });
 const form = document.getElementById("account-form");
-const scriptURL = 'https://script.google.com/macros/s/AKfycbxaqdiT76IGfxXXOxNk3h6dgXCje9toCbVLwWuOJ_ylt37dfIirxS_1FrAVZDupxX1HsQ/exec';
-
+const scriptURL = 'https://script.google.com/macros/s/AKfycbxaqdiT76IGfxXXOxNk3h6dgXCje9toCbVLwWuOJ_ylt37dfIirxS_1FrAVZDupxX1HsQ/exec'
 form.addEventListener('submit', e => {
   e.preventDefault(); // prevent page reload
 
@@ -327,6 +326,7 @@ form.addEventListener('submit', e => {
       alert("Error connecting to Google Sheets.");
     });
 });
+
 
 
 
