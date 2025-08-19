@@ -52,16 +52,17 @@
         const form = document.getElementById("account-form");
 
 // Replace this with your latest deployment URL
-const scriptURL = const scriptURL = 'https://script.google.com/macros/s/AKfycbyicbWuHwIxE60oV_nC2ILuibLFmEuk6I098pUwMhU10niGo4zyPbP8jQosehDCdWkNlQ/exec';
+const scriptURL = 'https://script.google.com/macros/s/AKfycbyicbWuHwIxE60oV_nC2ILuibLFmEuk6I098pUwMhU10niGo4zyPbP8jQosehDCdWkNlQ/exec';
 
 form.addEventListener('submit', e => {
   e.preventDefault(); // Prevent page reload
 
- fetch("https://script.google.com/macros/s/AKfycbyicbWuHwIxE60oV_nC2ILuibLFmEuk6I098pUwMhU10niGo4zyPbP8jQosehDCdWkNlQ/exec", {
+fetch(scriptURL, {
   method: 'POST',
   body: new FormData(form),
   mode: 'cors'
 })
+
 
   .then(response => response.json()) // Expect JSON from the script
   .then(res => {
@@ -81,6 +82,7 @@ form.addEventListener('submit', e => {
     </script>
 </body>
 </html>
+
 
 
 
