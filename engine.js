@@ -307,31 +307,38 @@ buttonTool.addEventListener("click", () => {
     buttonPanel.style.display = buttonPanel.style.display === "none" ? "block" : "none";
   }
 });
-const form = document.getElementById("account-form");
-const scriptURL = "https://script.google.com/macros/s/AKfycbwvebIccSfytVBpi0bHLVhQ3RX11dU9bRPBNZQrjJBptaHLDUwbzrZDSbqFc6uIM6L1Qg/exec";
-const errorMsg = document.getElementById("error-msg");
+const form = document.getElementById("create-account");
 
-form.addEventListener("submit", e => {
-    e.preventDefault(); // prevent default form submission
+form.addEventListener("submit", (e) => {
+  e.preventDefault(); // prevent page reload
 
-    const formData = new FormData(form);
+  const data = {
+    name: form.name.value,
+    age: form.age.value,
+    gender: form.gender.value,
+    phone: form.phone.value,
+    gmail: form.gmail.value,
+    upi: form.upi.value,
+    password: form.password.value
+  };
 
-    // Send data to Google Sheets
-    fetch(scriptURL, { method: "POST", body: formData })
-        .then(response => {
-            if (response.ok) {
-                // Redirect to websitetype.html after successful submission
-                window.location.href = "websitetype.html";
-            } else {
-                throw new Error("Failed to submit form");
-            }
-        })
-        .catch(error => {
-            console.error(error);
-            errorMsg.style.display = "block";
-            errorMsg.textContent = "Error submitting form. Please try again.";
-        });
+  fetch("https://script.google.com/macros/s/AKfycbwvebIccSfytVBpi0bHLVhQ3RX11dU9bRPBNZQrjJBptaHLDUwbzrZDSbqFc6uIM6L1Qg/exec", {
+    method: "POST",
+    mode: "no-cors",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(data)
+  })
+  .then(() => {
+    window.location.href = "websitetype.html"; // redirect after submission
+  })
+  .catch((err) => {
+    console.error("Error submitting form:", err);
+  });
 });
+
+
 
 
 
