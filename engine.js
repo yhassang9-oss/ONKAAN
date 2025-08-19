@@ -307,43 +307,27 @@ buttonTool.addEventListener("click", () => {
     buttonPanel.style.display = buttonPanel.style.display === "none" ? "block" : "none";
   }
 });
-const form = document.getElementById("account-form");
+const scriptURL = 'https://script.google.com/macros/s/AKfycbzpgsvGL1BPo-_J8sop8hLMF_GhHEZTtdV4G4uTdhZ1HYXhxXbDLZ2YNaNuY8BNQ9WP9g/exec';
+const form = document.forms['account-form']; // your form id/name
 
-form.addEventListener("submit", function(e) {
-    e.preventDefault(); // stop the default reload
+form.addEventListener('submit', e => {
+  e.preventDefault(); // stop page reload
 
-    // Collect data
-    const data = {
-        name: document.getElementById("name").value,
-        age: document.getElementById("age").value,
-        gender: document.getElementById("gender").value,
-        phone: document.getElementById("phone").value,
-        gmail: document.getElementById("gmail").value,
-        upi: document.getElementById("upi").value,
-        password: document.getElementById("password").value
-    };
-
-    // Send to Google Sheets
-    fetch("https://script.google.com/macros/s/AKfycbzpgsvGL1BPo-_J8sop8hLMF_GhHEZTtdV4G4uTdhZ1HYXhxXbDLZ2YNaNuY8BNQ9WP9g/exec" {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify(data)
-    })
-    .then(response => response.json())
+  fetch(scriptURL, { method: 'POST', body: new FormData(form) })
+    .then(response => response.json()) // assuming your script returns JSON
     .then(res => {
-        if(res.result === "success") {
-            window.location.href = "websitetype.html"; // go to next page
-        } else {
-            alert("Something went wrong. Try again.");
-        }
+      if(res.result === "success") {
+        window.location.href = "websitetype.html"; // redirect
+      } else {
+        alert("Something went wrong. Try again.");
+      }
     })
-    .catch(err => {
-        console.error(err);
-        alert("Error connecting to Google Sheets.");
+    .catch(error => {
+      console.error('Error!', error.message);
+      alert("Error connecting to Google Sheets.");
     });
 });
+
 
 
 
