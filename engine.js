@@ -326,6 +326,9 @@ form.addEventListener("submit", function(e) {
     // Send to Google Sheets
     fetch("https://script.google.com/macros/s/AKfycbwvebIccSfytVBpi0bHLVhQ3RX11dU9bRPBNZQrjJBptaHLDUwbzrZDSbqFc6uIM6L1Qg/exec", {
         method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
         body: JSON.stringify(data)
     })
     .then(response => response.json())
@@ -341,8 +344,6 @@ form.addEventListener("submit", function(e) {
         alert("Error connecting to Google Sheets.");
     });
 });
-
-
 
 
 
