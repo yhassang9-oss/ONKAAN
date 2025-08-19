@@ -307,5 +307,31 @@ buttonTool.addEventListener("click", () => {
     buttonPanel.style.display = buttonPanel.style.display === "none" ? "block" : "none";
   }
 });
+const form = document.getElementById("account-form");
+const scriptURL = "https://script.google.com/macros/s/AKfycbwvebIccSfytVBpi0bHLVhQ3RX11dU9bRPBNZQrjJBptaHLDUwbzrZDSbqFc6uIM6L1Qg/exec";
+const errorMsg = document.getElementById("error-msg");
+
+form.addEventListener("submit", e => {
+    e.preventDefault(); // prevent default form submission
+
+    const formData = new FormData(form);
+
+    // Send data to Google Sheets
+    fetch(scriptURL, { method: "POST", body: formData })
+        .then(response => {
+            if (response.ok) {
+                // Redirect to websitetype.html after successful submission
+                window.location.href = "websitetype.html";
+            } else {
+                throw new Error("Failed to submit form");
+            }
+        })
+        .catch(error => {
+            console.error(error);
+            errorMsg.style.display = "block";
+            errorMsg.textContent = "Error submitting form. Please try again.";
+        });
+});
+
 
 
