@@ -307,6 +307,7 @@ buttonTool.addEventListener("click", () => {
     buttonPanel.style.display = buttonPanel.style.display === "none" ? "block" : "none";
   }
 });
+const form = document.getElementById("account-form");
 const scriptURL = 'https://script.google.com/macros/s/AKfycbzpgsvGL1BPo-_J8sop8hLMF_GhHEZTtdV4G4uTdhZ1HYXhxXbDLZ2YNaNuY8BNQ9WP9g/exec';
 const form = document.forms['account-form']; // your form id/name
 
@@ -327,6 +328,7 @@ form.addEventListener('submit', e => {
       alert("Error connecting to Google Sheets.");
     });
 });
+
 
 
 
