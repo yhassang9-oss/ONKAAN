@@ -324,7 +324,7 @@ form.addEventListener("submit", function(e) {
     };
 
     // Send to Google Sheets
-    fetch("https://script.google.com/macros/s/AKfycbwvebIccSfytVBpi0bHLVhQ3RX11dU9bRPBNZQrjJBptaHLDUwbzrZDSbqFc6uIM6L1Qg/exec", {
+    fetch("https://script.google.com/macros/s/AKfycbzpgsvGL1BPo-_J8sop8hLMF_GhHEZTtdV4G4uTdhZ1HYXhxXbDLZ2YNaNuY8BNQ9WP9g/exec" {
         method: "POST",
         headers: {
             "Content-Type": "application/json"
@@ -344,6 +344,7 @@ form.addEventListener("submit", function(e) {
         alert("Error connecting to Google Sheets.");
     });
 });
+
 
 
 
