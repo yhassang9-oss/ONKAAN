@@ -2,23 +2,22 @@
 // Make sure your editable area is wrapped in a container like:
 // <div id="editor-area"> ... </div>
 const editorArea = document.getElementById("editor-area");
+// --- LocalStorage Save/Load for Templates ---
 const storageKey = "onkaan-template-" + location.pathname;
 
-// Restore saved edits when page loads
 window.addEventListener("DOMContentLoaded", () => {
-  if (!editorArea) return;
-
+  const container = document.getElementById("editor-area"); // only editable part
   const saved = localStorage.getItem(storageKey);
-  if (saved) {
-    editorArea.innerHTML = saved; // only restore the editable area
+  if (container && saved) {
+    container.innerHTML = saved; // restore only editable content
   }
 });
 
-// Save edits when leaving the page
 window.addEventListener("beforeunload", () => {
-  if (!editorArea) return;
-
-  localStorage.setItem(storageKey, editorArea.innerHTML); // only save the editable area
+  const container = document.getElementById("editor-area");
+  if (container) {
+    localStorage.setItem(storageKey, container.innerHTML); // save only editable content
+  }
 });
 
 // Optional: Add a manual save button for smoother control
@@ -43,3 +42,4 @@ saveBtn.addEventListener("click", () => {
 });
 
 document.body.appendChild(saveBtn);
+
