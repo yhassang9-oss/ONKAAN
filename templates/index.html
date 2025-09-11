@@ -1,8 +1,11 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Template 1</title>
-    <style>/* -----------------------------
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Template 1 - Product Page</title>
+<style>
+/* -----------------------------
    Reset & Base
 ------------------------------ */
 * {
@@ -92,7 +95,7 @@ nav ul li a:hover {
     display: block;
 }
 
-/* Optional: slideshow navigation dots */
+/* Slideshow dots */
 .dots-container {
     text-align: center;
     margin-top: 10px;
@@ -204,23 +207,29 @@ footer {
     }
 }
 </style>
-
 </head>
 <body>
-    <!-- Editable container for engine.js -->
-  <!-- Editable container -->
+
+<!-- Editable container -->
 <div id="editor-area">
     <header>
-        <img src="your logo.jpg" id="logo">
-        <h2>Your Title</h2>
+        <img src="your-logo.jpg" id="logo" data-editable="true">
+        <h2 data-editable="true">Your Title</h2>
     </header>
-    <div class="slideshow-container">
-        <img src="banner1.jpg" class="slide">
+
+    <div class="slideshow-container" data-editable="true">
+        <img src="banner1.jpg" class="slide active">
         <img src="banner2.jpg" class="slide">
+    </div>
+
+    <!-- Optional dots -->
+    <div class="dots-container">
+        <span class="dot active"></span>
+        <span class="dot"></span>
     </div>
 </div>
 
-<!-- Non-editable clickable product box -->
+<!-- Non-editable clickable product boxes -->
 <div class="product-box" onclick="window.location.href='product.html'">
     <img src="product.jpg" alt="Product Image">
     <h2>Product Name</h2>
@@ -228,16 +237,17 @@ footer {
     <button onclick="window.location.href='buynow.html'; event.stopPropagation();">Buy Now</button>
 </div>
 
+<div class="product-box" onclick="window.location.href='product2.html'">
+    <img src="product2.jpg" alt="Product Image">
+    <h2>Another Product</h2>
+    <p>₹1999</p>
+    <button onclick="window.location.href='buynow.html'; event.stopPropagation();">Buy Now</button>
+</div>
 
-    <!-- engine.js controls -->
-    <script src="index.js"></script>
+<!-- engine.js -->
+<script src="index.js"></script>
 
-    <footer id="footer1">© 2025 Your Company</footer>
+<footer>© 2025 Your Company</footer>
+
 </body>
 </html>
-
-
-
-
-
-
