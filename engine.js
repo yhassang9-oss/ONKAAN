@@ -18,8 +18,8 @@ let buttonPanel = null;
 // --- Tool toggle functions ---
 function deactivateAllTools() {
   activeTool = null;
-  textTool.classList.remove("active-tool");
-  selectTool.classList.remove("active-tool");
+  textTool?.classList.remove("active-tool");
+  selectTool?.classList.remove("active-tool");
 
   if (selectedElement) {
     selectedElement.style.outline = "none";
@@ -77,18 +77,18 @@ document.addEventListener("keydown", (e) => {
 });
 
 // --- Event listeners ---
-textTool.addEventListener("click", () => {
+textTool?.addEventListener("click", () => {
   if (activeTool === "text") deactivateAllTools();
   else { deactivateAllTools(); activeTool = "text"; textTool.classList.add("active-tool"); }
 });
 
-selectTool.addEventListener("click", () => {
+selectTool?.addEventListener("click", () => {
   if (activeTool === "select") deactivateAllTools();
   else { deactivateAllTools(); activeTool = "select"; selectTool.classList.add("active-tool"); }
 });
 
-undoBtn.addEventListener("click", undo);
-redoBtn.addEventListener("click", redo);
+undoBtn?.addEventListener("click", undo);
+redoBtn?.addEventListener("click", redo);
 
 // --- Color Tool ---
 colorTool?.addEventListener("click", () => {
@@ -105,11 +105,22 @@ colorTool?.addEventListener("click", () => {
 
     colorPanel.addEventListener("input", (e) => {
         if (!selectedElement) return;
-        if (selectedElement.tagName === "DIV" || selectedElement.tagName === "P" || selectedElement.isContentEditable) {
+
+        const tag = selectedElement.tagName;
+
+        // Editable text
+        if (selectedElement.isContentEditable || ["P","H1","H2","H3","H4","H5","H6","SPAN","A","LABEL"].includes(tag)) {
             selectedElement.style.color = e.target.value;
-        } else if (selectedElement.tagName === "IMG") {
+        }
+        // Divs, sections, product boxes, footer
+        else if (tag === "DIV" || tag === "SECTION" || tag === "FOOTER" || selectedElement.classList.contains("product-box")) {
+            selectedElement.style.backgroundColor = e.target.value;
+        }
+        // Images
+        else if (tag === "IMG") {
             selectedElement.style.borderColor = e.target.value;
         }
+
         saveHistory();
     });
 });
@@ -140,7 +151,7 @@ imageTool?.addEventListener("click", () => {
 });
 
 // --- Iframe logic ---
-previewFrame.addEventListener("load", () => {
+previewFrame?.addEventListener("load", () => {
   const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
   const editorContainer = iframeDoc.getElementById("editor-area");
   if (!editorContainer) return;
@@ -282,6 +293,10 @@ saveBtn.addEventListener("click", () => {
   const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
   const container = iframeDoc.getElementById("editor-area"); 
   if (container) {
+    // Remove outlines and handles before saving
+    container.querySelectorAll(".resize-handle").forEach(h => h.remove());
+    if (selectedElement) selectedElement.style.outline = "none";
+
     localStorage.setItem(storageKey, container.innerHTML);
     alert("Page saved!");
   }
