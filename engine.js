@@ -37,6 +37,10 @@ function saveHistory() {
   historyStack = historyStack.slice(0, historyIndex + 1);
   historyStack.push(iframeDoc.body.innerHTML);
   historyIndex++;
+
+  // ✅ Save to localStorage
+  localStorage.setItem("onkaan-history", JSON.stringify(historyStack));
+  localStorage.setItem("onkaan-historyIndex", historyIndex);
 }
 
 function undo() {
@@ -44,6 +48,7 @@ function undo() {
     historyIndex--;
     const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
     iframeDoc.body.innerHTML = historyStack[historyIndex];
+    localStorage.setItem("onkaan-historyIndex", historyIndex);
   }
 }
 
@@ -52,6 +57,7 @@ function redo() {
     historyIndex++;
     const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
     iframeDoc.body.innerHTML = historyStack[historyIndex];
+    localStorage.setItem("onkaan-historyIndex", historyIndex);
   }
 }
 
@@ -83,7 +89,18 @@ redoBtn.addEventListener("click", redo);
 // --- Iframe logic ---
 previewFrame.addEventListener("load", () => {
   const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
-  saveHistory();
+
+  // ✅ Restore history from localStorage if available
+  const savedHistory = JSON.parse(localStorage.getItem("onkaan-history") || "[]");
+  const savedIndex = parseInt(localStorage.getItem("onkaan-historyIndex") || "-1", 10);
+
+  if (savedHistory.length > 0 && savedIndex >= 0) {
+    historyStack = savedHistory;
+    historyIndex = savedIndex;
+    iframeDoc.body.innerHTML = historyStack[historyIndex];
+  } else {
+    saveHistory();
+  }
 
   iframeDoc.addEventListener("click", (e) => {
     const el = e.target;
@@ -126,19 +143,16 @@ previewFrame.addEventListener("load", () => {
         el.tagName === "IMG" ||
         el.classList.contains("slideshow-container") ||
         el.tagName === "DIV" ||
-        ["P", "H1", "H2", "H3", "H4", "H5", "H6", "SPAN", "A", "LABEL"].includes(el.tagName) // 👈 added text elements
+        ["P", "H1", "H2", "H3", "H4", "H5", "H6", "SPAN", "A", "LABEL"].includes(el.tagName)
       ) {
         selectedElement = el;
         selectedElement.style.outline = "2px dashed red";
         makeResizable(selectedElement, iframeDoc);
 
-        // --- Make text editable if it's a text element ---
         if (["P","H1","H2","H3","H4","H5","H6","SPAN","A","LABEL"].includes(el.tagName)) {
           selectedElement.contentEditable = "true";
           selectedElement.dataset.editable = "true";
           selectedElement.focus();
-
-          // Save history after finishing edit
           selectedElement.addEventListener("blur", () => saveHistory(), { once: true });
         }
       }
@@ -193,7 +207,7 @@ function makeResizable(el, doc) {
   });
 }
 
-// --- Color Tool (MS Paint style palette) ---
+// --- Color Tool ---
 colorTool.addEventListener("click", () => {
   if (!selectedElement) { alert("Select an element first!"); return; }
   const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
@@ -212,7 +226,6 @@ colorTool.addEventListener("click", () => {
   colorPanel.style.gridGap = "5px";
   colorPanel.style.zIndex = "9999";
 
-  // Prevent palette from being selectable
   colorPanel.addEventListener("mousedown", (e) => e.stopPropagation());
   colorPanel.addEventListener("click", (e) => e.stopPropagation());
 
@@ -307,21 +320,22 @@ buttonTool.addEventListener("click", () => {
     buttonPanel.style.display = buttonPanel.style.display === "none" ? "block" : "none";
   }
 });
+
+// --- Google Form Submit ---
 const form = document.getElementById("account-form");
 const scriptURL = 'https://script.google.com/macros/s/AKfycbxhbQxu_TONoSyRV7fACzghLnmSpf58mMkq40QuQoyQb4hN34jZ6yuhid9IqXeDE5PSVw/exec';
 form.addEventListener('submit', e => {
-  e.preventDefault(); // prevent page reload
+  e.preventDefault();
 
- fetch(scriptURL, {
-  method: 'POST',
-  body: new FormData(form),
-  mode: 'cors'
-})
-
-    .then(response => response.json()) // expecting JSON from the script
+  fetch(scriptURL, {
+    method: 'POST',
+    body: new FormData(form),
+    mode: 'cors'
+  })
+    .then(response => response.json())
     .then(res => {
       if(res.result === "success") {
-        window.location.href = "websitetype.html"; // redirect on success
+        window.location.href = "websitetype.html";
       } else {
         alert("Something went wrong. Try again.");
       }
@@ -331,12 +345,3 @@ form.addEventListener('submit', e => {
       alert("Error connecting to Google Sheets.");
     });
 });
-
-
-
-
-
-
-
-
-
