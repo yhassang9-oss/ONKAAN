@@ -1,21 +1,16 @@
-// Slideshow functions (if you have multiple images)
-let slideIndex = 1;
-showSlide(slideIndex);
+// --- LocalStorage Save/Load for Templates ---
+// Unique key per page using pathname
+const storageKey = "onkaan-template-" + location.pathname;
 
-function changeSlide(n) {
-    showSlide(slideIndex += n);
-}
+// Restore saved edits when page loads
+window.addEventListener("DOMContentLoaded", () => {
+  const saved = localStorage.getItem(storageKey);
+  if (saved) {
+    document.body.innerHTML = saved;
+  }
+});
 
-function showSlide(n) {
-    const slides = document.getElementsByClassName("slide");
-    if (slides.length === 0) return; // no slides
-
-    if (n > slides.length) slideIndex = 1;
-    if (n < 1) slideIndex = slides.length;
-
-    for (let i = 0; i < slides.length; i++) {
-        slides[i].style.display = "none";
-    }
-    slides[slideIndex - 1].style.display = "block";
-}
-
+// Save edits when leaving the page
+window.addEventListener("beforeunload", () => {
+  localStorage.setItem(storageKey, document.body.innerHTML);
+});
