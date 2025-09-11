@@ -90,6 +90,55 @@ selectTool.addEventListener("click", () => {
 undoBtn.addEventListener("click", undo);
 redoBtn.addEventListener("click", redo);
 
+// --- Color Tool ---
+colorTool?.addEventListener("click", () => {
+    if (!selectedElement) return alert("Select an element first!");
+    if (colorPanel) { colorPanel.remove(); colorPanel = null; return; }
+
+    colorPanel = document.createElement("input");
+    colorPanel.type = "color";
+    colorPanel.style.position = "fixed";
+    colorPanel.style.top = "20px";
+    colorPanel.style.left = "20px";
+    colorPanel.style.zIndex = "9999";
+    document.body.appendChild(colorPanel);
+
+    colorPanel.addEventListener("input", (e) => {
+        if (!selectedElement) return;
+        if (selectedElement.tagName === "DIV" || selectedElement.tagName === "P" || selectedElement.isContentEditable) {
+            selectedElement.style.color = e.target.value;
+        } else if (selectedElement.tagName === "IMG") {
+            selectedElement.style.borderColor = e.target.value;
+        }
+        saveHistory();
+    });
+});
+
+// --- Image Tool ---
+imageTool?.addEventListener("click", () => {
+    if (!selectedElement || selectedElement.tagName !== "IMG") return alert("Select an image first!");
+
+    const fileInput = document.createElement("input");
+    fileInput.type = "file";
+    fileInput.accept = "image/*";
+    fileInput.style.display = "none";
+
+    fileInput.addEventListener("change", (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            selectedElement.src = ev.target.result;
+            saveHistory();
+        };
+        reader.readAsDataURL(file);
+    });
+
+    document.body.appendChild(fileInput);
+    fileInput.click();
+    fileInput.remove();
+});
+
 // --- Iframe logic ---
 previewFrame.addEventListener("load", () => {
   const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
