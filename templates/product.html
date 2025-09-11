@@ -155,27 +155,26 @@
           <h1 id="available">Available</h1>
         </div>
 
-        <div class="box">
+        <div class="box btns">
           <button id="buy">Buy Now</button>
-<button id="addcart">Add to Cart</button>
-
-<script>
-document.getElementById("buy").addEventListener("click", () => {
-  window.location.href = "buynow.html";
-});
-
-document.getElementById("addcart").addEventListener("click", () => {
-  window.location.href = "index.html";
-});
-</script>
-
+          <button id="addcart">Add to Cart</button>
         </div>
 
       </div>
     </div>
   </header>
-  <script src="index.js"></script>
+
+  <script>
+    // Only handle navigation for this page
+    document.getElementById("buy").addEventListener("click", () => {
+      window.location.href = "buynow.html";
+    });
+
+    document.getElementById("addcart").addEventListener("click", () => {
+      window.location.href = "index.html";
+    });
+  </script>
+
   <footer id="footer2">© 2025 Your Company</footer>
 </body>
 </html>
-
