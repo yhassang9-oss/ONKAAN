@@ -345,3 +345,36 @@ form.addEventListener('submit', e => {
       alert("Error connecting to Google Sheets.");
     });
 });
+// --- LocalStorage Manual Save ---
+// Unique key per page
+const storageKey = "onkaan-template-" + location.pathname;
+
+// Restore saved edits when page loads
+window.addEventListener("DOMContentLoaded", () => {
+  const saved = localStorage.getItem(storageKey);
+  if (saved) {
+    document.body.innerHTML = saved;
+  }
+});
+
+// Save button logic
+const saveBtn = document.createElement("button");
+saveBtn.textContent = "💾 Save Page";
+saveBtn.style.position = "fixed";
+saveBtn.style.bottom = "20px";
+saveBtn.style.right = "20px";
+saveBtn.style.padding = "10px 15px";
+saveBtn.style.background = "green";
+saveBtn.style.color = "white";
+saveBtn.style.border = "none";
+saveBtn.style.borderRadius = "5px";
+saveBtn.style.cursor = "pointer";
+saveBtn.style.zIndex = "9999";
+
+saveBtn.addEventListener("click", () => {
+  localStorage.setItem(storageKey, document.body.innerHTML);
+  alert("Page saved!");
+});
+
+document.body.appendChild(saveBtn);
+
