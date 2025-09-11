@@ -37,8 +37,13 @@ function saveHistory() {
   const editorContainer = iframeDoc.getElementById("editor-area");
   if (!editorContainer) return;
 
+  // Clean HTML before saving (remove outlines and handles)
+  const tempHTML = editorContainer.cloneNode(true);
+  tempHTML.querySelectorAll(".resize-handle").forEach(h => h.remove());
+  if (selectedElement) selectedElement.style.outline = "none";
+
   historyStack = historyStack.slice(0, historyIndex + 1);
-  historyStack.push(editorContainer.innerHTML);
+  historyStack.push(tempHTML.innerHTML);
   historyIndex++;
 
   localStorage.setItem("onkaan-history", JSON.stringify(historyStack));
@@ -92,62 +97,61 @@ redoBtn?.addEventListener("click", redo);
 
 // --- Color Tool ---
 colorTool?.addEventListener("click", () => {
-    if (!selectedElement) return alert("Select an element first!");
-    if (colorPanel) { colorPanel.remove(); colorPanel = null; return; }
+  if (!selectedElement) return alert("Select an element first!");
+  if (colorPanel) { colorPanel.remove(); colorPanel = null; return; }
 
-    colorPanel = document.createElement("input");
-    colorPanel.type = "color";
-    colorPanel.style.position = "fixed";
-    colorPanel.style.top = "20px";
-    colorPanel.style.left = "20px";
-    colorPanel.style.zIndex = "9999";
-    document.body.appendChild(colorPanel);
+  colorPanel = document.createElement("input");
+  colorPanel.type = "color";
+  colorPanel.style.position = "fixed";
+  colorPanel.style.top = "20px";
+  colorPanel.style.left = "20px";
+  colorPanel.style.zIndex = "9999";
+  document.body.appendChild(colorPanel);
 
-    colorPanel.addEventListener("input", (e) => {
-        if (!selectedElement) return;
+  colorPanel.addEventListener("input", (e) => {
+    if (!selectedElement) return;
+    const tag = selectedElement.tagName;
 
-        const tag = selectedElement.tagName;
+    // Editable text
+    if (selectedElement.isContentEditable || ["P","H1","H2","H3","H4","H5","H6","SPAN","A","LABEL"].includes(tag)) {
+      selectedElement.style.color = e.target.value;
+    }
+    // Divs, sections, product boxes, footer
+    else if (tag === "DIV" || tag === "SECTION" || tag === "FOOTER" || selectedElement.classList.contains("product-box")) {
+      selectedElement.style.backgroundColor = e.target.value;
+    }
+    // Images
+    else if (tag === "IMG") {
+      selectedElement.style.borderColor = e.target.value;
+    }
 
-        // Editable text
-        if (selectedElement.isContentEditable || ["P","H1","H2","H3","H4","H5","H6","SPAN","A","LABEL"].includes(tag)) {
-            selectedElement.style.color = e.target.value;
-        }
-        // Divs, sections, product boxes, footer
-        else if (tag === "DIV" || tag === "SECTION" || tag === "FOOTER" || selectedElement.classList.contains("product-box")) {
-            selectedElement.style.backgroundColor = e.target.value;
-        }
-        // Images
-        else if (tag === "IMG") {
-            selectedElement.style.borderColor = e.target.value;
-        }
-
-        saveHistory();
-    });
+    saveHistory();
+  });
 });
 
 // --- Image Tool ---
 imageTool?.addEventListener("click", () => {
-    if (!selectedElement || selectedElement.tagName !== "IMG") return alert("Select an image first!");
+  if (!selectedElement || selectedElement.tagName !== "IMG") return alert("Select an image first!");
 
-    const fileInput = document.createElement("input");
-    fileInput.type = "file";
-    fileInput.accept = "image/*";
-    fileInput.style.display = "none";
+  const fileInput = document.createElement("input");
+  fileInput.type = "file";
+  fileInput.accept = "image/*";
+  fileInput.style.display = "none";
 
-    fileInput.addEventListener("change", (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-            selectedElement.src = ev.target.result;
-            saveHistory();
-        };
-        reader.readAsDataURL(file);
-    });
+  fileInput.addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      selectedElement.src = ev.target.result;
+      saveHistory();
+    };
+    reader.readAsDataURL(file);
+  });
 
-    document.body.appendChild(fileInput);
-    fileInput.click();
-    fileInput.remove();
+  document.body.appendChild(fileInput);
+  fileInput.click();
+  fileInput.remove();
 });
 
 // --- Iframe logic ---
@@ -212,6 +216,7 @@ previewFrame?.addEventListener("load", () => {
         ["P","H1","H2","H3","H4","H5","H6","SPAN","A","LABEL"].includes(el.tagName)
       ) {
         selectedElement = el;
+        // Only show outline temporarily during selection
         selectedElement.style.outline = "2px dashed red";
         makeResizable(selectedElement, iframeDoc);
 
@@ -221,6 +226,11 @@ previewFrame?.addEventListener("load", () => {
           selectedElement.focus();
           selectedElement.addEventListener("blur", () => saveHistory(), { once: true });
         }
+
+        // Remove outline after a short delay so it never gets saved
+        setTimeout(() => {
+          if (selectedElement) selectedElement.style.outline = "none";
+        }, 100);
       }
     }
   });
