@@ -321,43 +321,7 @@ buttonTool.addEventListener("click", () => {
   }
 });
 
-// --- Google Form Submit ---
-const form = document.getElementById("account-form");
-const scriptURL = 'https://script.google.com/macros/s/AKfycbxhbQxu_TONoSyRV7fACzghLnmSpf58mMkq40QuQoyQb4hN34jZ6yuhid9IqXeDE5PSVw/exec';
-form.addEventListener('submit', e => {
-  e.preventDefault();
-
-  fetch(scriptURL, {
-    method: 'POST',
-    body: new FormData(form),
-    mode: 'cors'
-  })
-    .then(response => response.json())
-    .then(res => {
-      if(res.result === "success") {
-        window.location.href = "websitetype.html";
-      } else {
-        alert("Something went wrong. Try again.");
-      }
-    })
-    .catch(error => {
-      console.error('Error!', error.message);
-      alert("Error connecting to Google Sheets.");
-    });
-});
-// --- LocalStorage Manual Save ---
-// Unique key per page
-const storageKey = "onkaan-template-" + location.pathname;
-
-// Restore saved edits when page loads
-window.addEventListener("DOMContentLoaded", () => {
-  const saved = localStorage.getItem(storageKey);
-  if (saved) {
-    document.body.innerHTML = saved;
-  }
-});
-
-// Save button logic
+// --- Manual Save Button (for editable container only) ---
 const saveBtn = document.createElement("button");
 saveBtn.textContent = "💾 Save Page";
 saveBtn.style.position = "fixed";
@@ -371,10 +335,22 @@ saveBtn.style.borderRadius = "5px";
 saveBtn.style.cursor = "pointer";
 saveBtn.style.zIndex = "9999";
 
+const storageKey = "onkaan-template-" + location.pathname;
+
 saveBtn.addEventListener("click", () => {
-  localStorage.setItem(storageKey, document.body.innerHTML);
-  alert("Page saved!");
+  const container = document.getElementById("editor-area"); // <-- only save this container
+  if (container) {
+    localStorage.setItem(storageKey, container.innerHTML);
+    alert("Page saved!");
+  }
+});
+
+window.addEventListener("DOMContentLoaded", () => {
+  const container = document.getElementById("editor-area");
+  const saved = localStorage.getItem(storageKey);
+  if (container && saved) {
+    container.innerHTML = saved; // <-- restore only editable content
+  }
 });
 
 document.body.appendChild(saveBtn);
-
