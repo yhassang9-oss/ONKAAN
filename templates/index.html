@@ -20,44 +20,26 @@
 </head>
 <body>
     <!-- Editable container for engine.js -->
-    <div id="editor-area">
-        <header id="header">
-            <div id="div1">
-                <img src="your logo.jpg" id="logo" alt="Logo"><br>
-                <h2 id="heading title">Your Title</h2>
-            </div>
-        </header>
-
-        <div id="div2">
-            <input type="text" placeholder="Search..." id="searchbar">
-            <button type="submit" id="btn1">Search</button> <br><br>
-            <nav>
-                <ul class="horizontal-list" id="nav">
-                    <li><a href="index.html" id="home">Home</a></li>
-                    <li><a href="#" id="about">About</a></li>
-                    <li><a href="#" id="services">Services</a></li>
-                    <li><a href="#" id="contact">Contact</a></li>
-                </ul>
-            </nav><br><br>
-
-            <div class="slideshow-container">
-                <img class="slide" src="banner1.jpg" alt="Banner 1">
-                <img class="slide" src="banner2.jpg" alt="Banner 2">
-                <img class="slide" src="banner3.jpg" alt="Banner 3">
-                <!-- Arrows -->
-                <a class="prev" onclick="changeSlide(-1)">&#10094;</a>
-                <a class="next" onclick="changeSlide(1)">&#10095;</a>
-            </div>
-
-            <!-- Product box -->
-            <div class="product-box" onclick="window.location.href='product.html'">
-                <img src="product.jpg" alt="Product Image" class="product-image">
-                <h2 class="product-title">Product Name</h2>
-                <p class="product-price">₹999</p>
-                <button class="buy-now" onclick="window.location.href='buynow.html'; event.stopPropagation();">Buy Now</button>
-            </div>
-        </div>
+  <!-- Editable container -->
+<div id="editor-area">
+    <header>
+        <img src="your logo.jpg" id="logo">
+        <h2>Your Title</h2>
+    </header>
+    <div class="slideshow-container">
+        <img src="banner1.jpg" class="slide">
+        <img src="banner2.jpg" class="slide">
     </div>
+</div>
+
+<!-- Non-editable clickable product box -->
+<div class="product-box" onclick="window.location.href='product.html'">
+    <img src="product.jpg" alt="Product Image">
+    <h2>Product Name</h2>
+    <p>₹999</p>
+    <button onclick="window.location.href='buynow.html'; event.stopPropagation();">Buy Now</button>
+</div>
+
 
     <!-- engine.js controls -->
     <script src="engine.js"></script>
@@ -65,3 +47,4 @@
     <footer id="footer1">© 2025 Your Company</footer>
 </body>
 </html>
+
