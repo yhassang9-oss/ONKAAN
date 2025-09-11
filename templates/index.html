@@ -35,41 +35,18 @@ header {
     background-color: #232f3e;
     padding: 10px 20px;
     color: white;
+    flex-wrap: wrap;
 }
 
 header #logo {
     max-height: 50px;
+    cursor: pointer;
 }
 
 header h2 {
     font-size: 24px;
     margin-left: 20px;
-}
-
-/* -----------------------------
-   Navigation
------------------------------- */
-nav {
-    background-color: #37475a;
-    padding: 10px 20px;
-}
-
-nav ul {
-    list-style: none;
-    display: flex;
-    gap: 15px;
-}
-
-nav ul li a {
-    color: white;
-    font-size: 16px;
-    padding: 5px 10px;
-    border-radius: 4px;
-    transition: background 0.3s;
-}
-
-nav ul li a:hover {
-    background-color: #485769;
+    cursor: pointer;
 }
 
 /* -----------------------------
@@ -83,6 +60,7 @@ nav ul li a:hover {
     border-radius: 10px;
     background: #fff;
     box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    cursor: pointer;
 }
 
 .slide {
@@ -122,9 +100,21 @@ nav ul li a:hover {
     padding: 20px;
 }
 
+[data-editable="true"]:hover {
+    outline: 2px dashed #232f3e;
+    outline-offset: 4px;
+}
+
 /* -----------------------------
    Product Boxes
 ------------------------------ */
+.product-container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin: 20px;
+}
+
 .product-box {
     background-color: #fff;
     border: 1px solid #ddd;
@@ -132,8 +122,6 @@ nav ul li a:hover {
     padding: 15px;
     margin: 15px;
     width: 220px;
-    display: inline-block;
-    vertical-align: top;
     text-align: center;
     cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s;
@@ -195,14 +183,8 @@ footer {
         flex-direction: column;
         text-align: center;
     }
-
-    nav ul {
-        flex-direction: column;
-        gap: 10px;
-    }
-
     .product-box {
-        width: 100%;
+        width: 90%;
         margin: 10px 0;
     }
 }
@@ -218,36 +200,53 @@ footer {
     </header>
 
     <div class="slideshow-container" data-editable="true">
-        <img src="banner1.jpg" class="slide active">
-        <img src="banner2.jpg" class="slide">
+        <img src="banner1.jpg" class="slide active" data-editable="true">
+        <img src="banner2.jpg" class="slide" data-editable="true">
     </div>
 
-    <!-- Optional dots -->
     <div class="dots-container">
-        <span class="dot active"></span>
-        <span class="dot"></span>
+        <span class="dot active" data-editable="true"></span>
+        <span class="dot" data-editable="true"></span>
     </div>
 </div>
 
-<!-- Non-editable clickable product boxes -->
-<div class="product-box" onclick="window.location.href='product.html'">
-    <img src="product.jpg" alt="Product Image">
-    <h2>Product Name</h2>
-    <p>₹999</p>
-    <button onclick="window.location.href='buynow.html'; event.stopPropagation();">Buy Now</button>
-</div>
+<!-- Non-editable product boxes -->
+<div class="product-container">
+    <div class="product-box" onclick="window.location.href='product.html'">
+        <img src="product.jpg" alt="Product Image">
+        <h2>Product Name</h2>
+        <p>₹999</p>
+        <button onclick="window.location.href='buynow.html'; event.stopPropagation();">Buy Now</button>
+    </div>
 
-<div class="product-box" onclick="window.location.href='product2.html'">
-    <img src="product2.jpg" alt="Product Image">
-    <h2>Another Product</h2>
-    <p>₹1999</p>
-    <button onclick="window.location.href='buynow.html'; event.stopPropagation();">Buy Now</button>
+    <div class="product-box" onclick="window.location.href='product2.html'">
+        <img src="product2.jpg" alt="Product Image">
+        <h2>Another Product</h2>
+        <p>₹1999</p>
+        <button onclick="window.location.href='buynow.html'; event.stopPropagation();">Buy Now</button>
+    </div>
 </div>
 
 <!-- engine.js -->
 <script src="index.js"></script>
 
-<footer>© 2025 Your Company</footer>
+<script>
+// Simple slideshow for demo
+let slides = document.querySelectorAll('.slide');
+let dots = document.querySelectorAll('.dot');
+let current = 0;
 
+function showSlide(index) {
+    slides.forEach((s, i) => s.classList.toggle('active', i === index));
+    dots.forEach((d, i) => d.classList.toggle('active', i === index));
+}
+
+setInterval(() => {
+    current = (current + 1) % slides.length;
+    showSlide(current);
+}, 4000);
+</script>
+
+<footer>© 2025 Your Company</footer>
 </body>
 </html>
