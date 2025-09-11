@@ -32,18 +32,25 @@ function deactivateAllTools() {
 }
 
 // --- History functions ---
+function cleanHTMLForSave(container) {
+  const tempHTML = container.cloneNode(true);
+
+  // Remove resize handles
+  tempHTML.querySelectorAll(".resize-handle").forEach(h => h.remove());
+
+  // Remove any outlines in the clone
+  tempHTML.querySelectorAll("*").forEach(el => el.style.outline = "none");
+
+  return tempHTML.innerHTML;
+}
+
 function saveHistory() {
   const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
   const editorContainer = iframeDoc.getElementById("editor-area");
   if (!editorContainer) return;
 
-  // Clean HTML before saving (remove outlines and handles)
-  const tempHTML = editorContainer.cloneNode(true);
-  tempHTML.querySelectorAll(".resize-handle").forEach(h => h.remove());
-  if (selectedElement) selectedElement.style.outline = "none";
-
   historyStack = historyStack.slice(0, historyIndex + 1);
-  historyStack.push(tempHTML.innerHTML);
+  historyStack.push(cleanHTMLForSave(editorContainer));
   historyIndex++;
 
   localStorage.setItem("onkaan-history", JSON.stringify(historyStack));
@@ -81,7 +88,7 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-// --- Event listeners ---
+// --- Tool clicks ---
 textTool?.addEventListener("click", () => {
   if (activeTool === "text") deactivateAllTools();
   else { deactivateAllTools(); activeTool = "text"; textTool.classList.add("active-tool"); }
@@ -112,16 +119,11 @@ colorTool?.addEventListener("click", () => {
     if (!selectedElement) return;
     const tag = selectedElement.tagName;
 
-    // Editable text
     if (selectedElement.isContentEditable || ["P","H1","H2","H3","H4","H5","H6","SPAN","A","LABEL"].includes(tag)) {
       selectedElement.style.color = e.target.value;
-    }
-    // Divs, sections, product boxes, footer
-    else if (tag === "DIV" || tag === "SECTION" || tag === "FOOTER" || selectedElement.classList.contains("product-box")) {
+    } else if (tag === "DIV" || tag === "SECTION" || tag === "FOOTER" || selectedElement.classList.contains("product-box")) {
       selectedElement.style.backgroundColor = e.target.value;
-    }
-    // Images
-    else if (tag === "IMG") {
+    } else if (tag === "IMG") {
       selectedElement.style.borderColor = e.target.value;
     }
 
@@ -160,7 +162,7 @@ previewFrame?.addEventListener("load", () => {
   const editorContainer = iframeDoc.getElementById("editor-area");
   if (!editorContainer) return;
 
-  // Restore history from localStorage if available
+  // Restore history from localStorage
   const savedHistory = JSON.parse(localStorage.getItem("onkaan-history") || "[]");
   const savedIndex = parseInt(localStorage.getItem("onkaan-historyIndex") || "-1", 10);
 
@@ -175,7 +177,6 @@ previewFrame?.addEventListener("load", () => {
   iframeDoc.addEventListener("click", (e) => {
     const el = e.target;
 
-    // --- Text Tool ---
     if (activeTool === "text") {
       const newText = iframeDoc.createElement("div");
       newText.textContent = "Type here...";
@@ -197,7 +198,6 @@ previewFrame?.addEventListener("load", () => {
       return;
     }
 
-    // --- Select Tool ---
     if (activeTool === "select") {
       e.preventDefault();
       e.stopPropagation();
@@ -216,7 +216,7 @@ previewFrame?.addEventListener("load", () => {
         ["P","H1","H2","H3","H4","H5","H6","SPAN","A","LABEL"].includes(el.tagName)
       ) {
         selectedElement = el;
-        // Only show outline temporarily during selection
+        // Show outline temporarily
         selectedElement.style.outline = "2px dashed red";
         makeResizable(selectedElement, iframeDoc);
 
@@ -227,10 +227,8 @@ previewFrame?.addEventListener("load", () => {
           selectedElement.addEventListener("blur", () => saveHistory(), { once: true });
         }
 
-        // Remove outline after a short delay so it never gets saved
-        setTimeout(() => {
-          if (selectedElement) selectedElement.style.outline = "none";
-        }, 100);
+        // Remove outline immediately from the actual element to never save it
+        selectedElement.style.outline = "none";
       }
     }
   });
@@ -303,11 +301,7 @@ saveBtn.addEventListener("click", () => {
   const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
   const container = iframeDoc.getElementById("editor-area"); 
   if (container) {
-    // Remove outlines and handles before saving
-    container.querySelectorAll(".resize-handle").forEach(h => h.remove());
-    if (selectedElement) selectedElement.style.outline = "none";
-
-    localStorage.setItem(storageKey, container.innerHTML);
+    localStorage.setItem(storageKey, cleanHTMLForSave(container));
     alert("Page saved!");
   }
 });
