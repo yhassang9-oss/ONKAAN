@@ -34,11 +34,13 @@ function deactivateAllTools() {
 // --- History functions ---
 function saveHistory() {
   const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
+  const editorContainer = iframeDoc.getElementById("editor-area");
+  if (!editorContainer) return;
+
   historyStack = historyStack.slice(0, historyIndex + 1);
-  historyStack.push(iframeDoc.body.innerHTML);
+  historyStack.push(editorContainer.innerHTML);
   historyIndex++;
 
-  // ✅ Save to localStorage
   localStorage.setItem("onkaan-history", JSON.stringify(historyStack));
   localStorage.setItem("onkaan-historyIndex", historyIndex);
 }
@@ -47,7 +49,8 @@ function undo() {
   if (historyIndex > 0) {
     historyIndex--;
     const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
-    iframeDoc.body.innerHTML = historyStack[historyIndex];
+    const editorContainer = iframeDoc.getElementById("editor-area");
+    if (editorContainer) editorContainer.innerHTML = historyStack[historyIndex];
     localStorage.setItem("onkaan-historyIndex", historyIndex);
   }
 }
@@ -56,7 +59,8 @@ function redo() {
   if (historyIndex < historyStack.length - 1) {
     historyIndex++;
     const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
-    iframeDoc.body.innerHTML = historyStack[historyIndex];
+    const editorContainer = iframeDoc.getElementById("editor-area");
+    if (editorContainer) editorContainer.innerHTML = historyStack[historyIndex];
     localStorage.setItem("onkaan-historyIndex", historyIndex);
   }
 }
@@ -89,15 +93,17 @@ redoBtn.addEventListener("click", redo);
 // --- Iframe logic ---
 previewFrame.addEventListener("load", () => {
   const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
+  const editorContainer = iframeDoc.getElementById("editor-area");
+  if (!editorContainer) return;
 
-  // ✅ Restore history from localStorage if available
+  // Restore history from localStorage if available
   const savedHistory = JSON.parse(localStorage.getItem("onkaan-history") || "[]");
   const savedIndex = parseInt(localStorage.getItem("onkaan-historyIndex") || "-1", 10);
 
   if (savedHistory.length > 0 && savedIndex >= 0) {
     historyStack = savedHistory;
     historyIndex = savedIndex;
-    iframeDoc.body.innerHTML = historyStack[historyIndex];
+    editorContainer.innerHTML = historyStack[historyIndex];
   } else {
     saveHistory();
   }
@@ -119,7 +125,7 @@ previewFrame.addEventListener("load", () => {
       newText.style.outline = "none";
       newText.style.cursor = "text";
 
-      iframeDoc.body.appendChild(newText);
+      editorContainer.appendChild(newText);
       newText.focus();
 
       saveHistory();
@@ -129,7 +135,7 @@ previewFrame.addEventListener("load", () => {
 
     // --- Select Tool ---
     if (activeTool === "select") {
-      e.preventDefault(); 
+      e.preventDefault();
       e.stopPropagation();
 
       if (selectedElement) {
@@ -143,7 +149,7 @@ previewFrame.addEventListener("load", () => {
         el.tagName === "IMG" ||
         el.classList.contains("slideshow-container") ||
         el.tagName === "DIV" ||
-        ["P", "H1", "H2", "H3", "H4", "H5", "H6", "SPAN", "A", "LABEL"].includes(el.tagName)
+        ["P","H1","H2","H3","H4","H5","H6","SPAN","A","LABEL"].includes(el.tagName)
       ) {
         selectedElement = el;
         selectedElement.style.outline = "2px dashed red";
@@ -207,121 +213,7 @@ function makeResizable(el, doc) {
   });
 }
 
-// --- Color Tool ---
-colorTool.addEventListener("click", () => {
-  if (!selectedElement) { alert("Select an element first!"); return; }
-  const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
-
-  if (colorPanel) { colorPanel.remove(); colorPanel = null; return; }
-
-  colorPanel = iframeDoc.createElement("div");
-  colorPanel.style.position = "fixed";
-  colorPanel.style.top = "20px";
-  colorPanel.style.left = "20px";
-  colorPanel.style.background = "#fff";
-  colorPanel.style.border = "1px solid #ccc";
-  colorPanel.style.padding = "10px";
-  colorPanel.style.display = "grid";
-  colorPanel.style.gridTemplateColumns = "repeat(8, 30px)";
-  colorPanel.style.gridGap = "5px";
-  colorPanel.style.zIndex = "9999";
-
-  colorPanel.addEventListener("mousedown", (e) => e.stopPropagation());
-  colorPanel.addEventListener("click", (e) => e.stopPropagation());
-
-  const colors = [
-    "#000000","#808080","#C0C0C0","#FFFFFF","#800000","#FF0000","#808000","#FFFF00",
-    "#008000","#00FF00","#008080","#00FFFF","#000080","#0000FF","#800080","#FF00FF"
-  ];
-
-  colors.forEach(c => {
-    const swatch = iframeDoc.createElement("div");
-    swatch.style.width = "30px";
-    swatch.style.height = "30px";
-    swatch.style.background = c;
-    swatch.style.cursor = "pointer";
-    swatch.style.border = "1px solid #555";
-    swatch.addEventListener("click", () => {
-      if (!selectedElement) return;
-      if (selectedElement.dataset.editable === "true") selectedElement.style.color = c;
-      else selectedElement.style.backgroundColor = c;
-      saveHistory();
-    });
-    colorPanel.appendChild(swatch);
-  });
-
-  iframeDoc.body.appendChild(colorPanel);
-});
-
-// --- Image Tool ---
-imageTool.addEventListener("click", () => {
-  if (!selectedElement || !(selectedElement.tagName === "IMG" || selectedElement.classList.contains("slideshow-container"))) {
-    alert("Select an image or slideshow first."); return;
-  }
-  const input = document.createElement("input");
-  input.type = "file"; input.accept = "image/*"; input.click();
-  input.onchange = (e) => {
-    const file = e.target.files[0]; if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      if (selectedElement.tagName === "IMG") selectedElement.src = ev.target.result;
-      else if (selectedElement.classList.contains("slideshow-container")) {
-        const firstSlide = selectedElement.querySelector(".slide");
-        if (firstSlide) firstSlide.src = ev.target.result;
-      }
-      saveHistory();
-    };
-    reader.readAsDataURL(file);
-  };
-});
-
-// --- Button Tool ---
-buttonTool.addEventListener("click", () => {
-  if (!selectedElement || selectedElement.tagName !== "BUTTON") { alert("Select a button first!"); return; }
-  const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
-
-  if (!buttonPanel) {
-    buttonPanel = iframeDoc.createElement("div");
-    buttonPanel.id = "buttonDesignPanel";
-    buttonPanel.style.position = "fixed";
-    buttonPanel.style.top = "50px";
-    buttonPanel.style.left = "20px";
-    buttonPanel.style.background = "#fff";
-    buttonPanel.style.border = "1px solid #ccc";
-    buttonPanel.style.padding = "10px";
-    buttonPanel.style.zIndex = "9999";
-    buttonPanel.innerHTML = `
-      <h3>Buy Now Designs</h3>
-      <div class="designs">
-        <button class="buyDesign1">1</button>
-        <button class="buyDesign2">2</button>
-        <button class="buyDesign3">3</button>
-        <button class="buyDesign4">4</button>
-        <button class="buyDesign5">5</button>
-      </div>
-      <h3>Add to Cart Designs</h3>
-      <div class="designs">
-        <button class="addDesign1">1</button>
-        <button class="addDesign2">2</button>
-        <button class="addDesign3">3</button>
-        <button class="addDesign4">4</button>
-        <button class="addDesign5">5</button>
-      </div>
-    `;
-    iframeDoc.body.appendChild(buttonPanel);
-
-    buttonPanel.querySelectorAll(".designs:nth-of-type(1) button").forEach(btn => {
-      btn.addEventListener("click", () => { if (selectedElement) selectedElement.className = btn.className; saveHistory(); });
-    });
-    buttonPanel.querySelectorAll(".designs:nth-of-type(2) button").forEach(btn => {
-      btn.addEventListener("click", () => { if (selectedElement) selectedElement.className = btn.className; saveHistory(); });
-    });
-  } else {
-    buttonPanel.style.display = buttonPanel.style.display === "none" ? "block" : "none";
-  }
-});
-
-// --- Manual Save Button (for editable container only) ---
+// --- Manual Save Button ---
 const saveBtn = document.createElement("button");
 saveBtn.textContent = "💾 Save Page";
 saveBtn.style.position = "fixed";
@@ -338,7 +230,8 @@ saveBtn.style.zIndex = "9999";
 const storageKey = "onkaan-template-" + location.pathname;
 
 saveBtn.addEventListener("click", () => {
-  const container = document.getElementById("editor-area"); // <-- only save this container
+  const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
+  const container = iframeDoc.getElementById("editor-area"); 
   if (container) {
     localStorage.setItem(storageKey, container.innerHTML);
     alert("Page saved!");
@@ -346,11 +239,10 @@ saveBtn.addEventListener("click", () => {
 });
 
 window.addEventListener("DOMContentLoaded", () => {
-  const container = document.getElementById("editor-area");
+  const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
+  const container = iframeDoc.getElementById("editor-area");
   const saved = localStorage.getItem(storageKey);
-  if (container && saved) {
-    container.innerHTML = saved; // <-- restore only editable content
-  }
+  if (container && saved) container.innerHTML = saved;
 });
 
 document.body.appendChild(saveBtn);
