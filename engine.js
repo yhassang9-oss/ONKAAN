@@ -5,7 +5,6 @@ const redoBtn = document.getElementById("redo");
 const colorTool = document.getElementById("color");
 const imageTool = document.getElementById("image");
 const buttonTool = document.getElementById("Buttons");
-
 const previewFrame = document.getElementById("previewFrame");
 
 let activeTool = null;
@@ -15,32 +14,54 @@ let historyIndex = -1;
 let colorPanel = null;
 let buttonPanel = null;
 
-// --- Tool toggle functions ---
+// --- TOOL TOGGLE ---
 function deactivateAllTools() {
   activeTool = null;
   textTool?.classList.remove("active-tool");
   selectTool?.classList.remove("active-tool");
 
-  if (selectedElement) {
-    selectedElement.style.outline = "none";
-    removeHandles(previewFrame.contentDocument || previewFrame.contentWindow.document);
-    selectedElement = null;
-  }
+  hideGridLines();
+  removeHandles(previewFrame.contentDocument || previewFrame.contentWindow.document);
+
+  if (selectedElement) selectedElement.style.outline = "none";
+  selectedElement = null;
 
   if (colorPanel) { colorPanel.remove(); colorPanel = null; }
   if (buttonPanel) { buttonPanel.style.display = "none"; }
 }
 
-// --- History functions ---
+textTool?.addEventListener("click", () => {
+  if (activeTool === "text") deactivateAllTools();
+  else { deactivateAllTools(); activeTool = "text"; textTool.classList.add("active-tool"); }
+});
+
+selectTool?.addEventListener("click", () => {
+  if (activeTool === "select") deactivateAllTools();
+  else { deactivateAllTools(); activeTool = "select"; selectTool.classList.add("active-tool"); showGridLines(); }
+});
+
+// --- GRID LINES ---
+function showGridLines() {
+  const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
+  if (!iframeDoc) return;
+  iframeDoc.body.style.backgroundImage = `
+    linear-gradient(to right, rgba(0,0,0,0.1) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0,0,0,0.1) 1px, transparent 1px)
+  `;
+  iframeDoc.body.style.backgroundSize = "20px 20px";
+}
+
+function hideGridLines() {
+  const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
+  if (!iframeDoc) return;
+  iframeDoc.body.style.backgroundImage = "none";
+}
+
+// --- HISTORY FUNCTIONS ---
 function cleanHTMLForSave(container) {
   const tempHTML = container.cloneNode(true);
-
-  // Remove resize handles
   tempHTML.querySelectorAll(".resize-handle").forEach(h => h.remove());
-
-  // Remove any outlines in the clone
   tempHTML.querySelectorAll("*").forEach(el => el.style.outline = "none");
-
   return tempHTML.innerHTML;
 }
 
@@ -77,32 +98,15 @@ function redo() {
   }
 }
 
-// --- Keyboard shortcuts ---
-document.addEventListener("keydown", (e) => {
-  if (e.ctrlKey && e.key === "z") {
-    e.preventDefault();
-    undo();
-  } else if (e.ctrlKey && e.key === "y") {
-    e.preventDefault();
-    redo();
-  }
-});
-
-// --- Tool clicks ---
-textTool?.addEventListener("click", () => {
-  if (activeTool === "text") deactivateAllTools();
-  else { deactivateAllTools(); activeTool = "text"; textTool.classList.add("active-tool"); }
-});
-
-selectTool?.addEventListener("click", () => {
-  if (activeTool === "select") deactivateAllTools();
-  else { deactivateAllTools(); activeTool = "select"; selectTool.classList.add("active-tool"); }
-});
-
 undoBtn?.addEventListener("click", undo);
 redoBtn?.addEventListener("click", redo);
 
-// --- Color Tool ---
+document.addEventListener("keydown", (e) => {
+  if (e.ctrlKey && e.key === "z") { e.preventDefault(); undo(); }
+  else if (e.ctrlKey && e.key === "y") { e.preventDefault(); redo(); }
+});
+
+// --- COLOR TOOL (Smooth Version) ---
 colorTool?.addEventListener("click", () => {
   if (!selectedElement) return alert("Select an element first!");
   if (colorPanel) { colorPanel.remove(); colorPanel = null; return; }
@@ -115,6 +119,7 @@ colorTool?.addEventListener("click", () => {
   colorPanel.style.zIndex = "9999";
   document.body.appendChild(colorPanel);
 
+  // Use 'input' for real-time smooth update
   colorPanel.addEventListener("input", (e) => {
     if (!selectedElement) return;
     const tag = selectedElement.tagName;
@@ -127,42 +132,16 @@ colorTool?.addEventListener("click", () => {
       selectedElement.style.borderColor = e.target.value;
     }
 
-    saveHistory();
+    saveHistory(); // save each change
   });
 });
 
-// --- Image Tool ---
-imageTool?.addEventListener("click", () => {
-  if (!selectedElement || selectedElement.tagName !== "IMG") return alert("Select an image first!");
-
-  const fileInput = document.createElement("input");
-  fileInput.type = "file";
-  fileInput.accept = "image/*";
-  fileInput.style.display = "none";
-
-  fileInput.addEventListener("change", (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      selectedElement.src = ev.target.result;
-      saveHistory();
-    };
-    reader.readAsDataURL(file);
-  });
-
-  document.body.appendChild(fileInput);
-  fileInput.click();
-  fileInput.remove();
-});
-
-// --- Iframe logic ---
+// --- IFRAME LOGIC ---
 previewFrame?.addEventListener("load", () => {
   const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
   const editorContainer = iframeDoc.getElementById("editor-area");
   if (!editorContainer) return;
 
-  // Restore history from localStorage
   const savedHistory = JSON.parse(localStorage.getItem("onkaan-history") || "[]");
   const savedIndex = parseInt(localStorage.getItem("onkaan-historyIndex") || "-1", 10);
 
@@ -170,13 +149,12 @@ previewFrame?.addEventListener("load", () => {
     historyStack = savedHistory;
     historyIndex = savedIndex;
     editorContainer.innerHTML = historyStack[historyIndex];
-  } else {
-    saveHistory();
-  }
+  } else { saveHistory(); }
 
   iframeDoc.addEventListener("click", (e) => {
     const el = e.target;
 
+    // --- TEXT TOOL ---
     if (activeTool === "text") {
       const newText = iframeDoc.createElement("div");
       newText.textContent = "Type here...";
@@ -189,7 +167,6 @@ previewFrame?.addEventListener("load", () => {
       newText.style.color = "black";
       newText.style.outline = "none";
       newText.style.cursor = "text";
-
       editorContainer.appendChild(newText);
       newText.focus();
 
@@ -198,25 +175,17 @@ previewFrame?.addEventListener("load", () => {
       return;
     }
 
+    // --- SELECT TOOL ---
     if (activeTool === "select") {
       e.preventDefault();
       e.stopPropagation();
+      if (selectedElement) removeHandles(iframeDoc);
 
-      if (selectedElement) {
-        selectedElement.style.outline = "none";
-        removeHandles(iframeDoc);
-      }
+      if ((el.dataset.editable === "true") || el.tagName === "BUTTON" || el.tagName === "IMG" ||
+          el.classList.contains("slideshow-container") || el.tagName === "DIV" ||
+          ["P","H1","H2","H3","H4","H5","H6","SPAN","A","LABEL"].includes(el.tagName)) {
 
-      if (
-        (el.dataset.editable === "true") ||
-        el.tagName === "BUTTON" ||
-        el.tagName === "IMG" ||
-        el.classList.contains("slideshow-container") ||
-        el.tagName === "DIV" ||
-        ["P","H1","H2","H3","H4","H5","H6","SPAN","A","LABEL"].includes(el.tagName)
-      ) {
         selectedElement = el;
-        // Show outline temporarily
         selectedElement.style.outline = "2px dashed red";
         makeResizable(selectedElement, iframeDoc);
 
@@ -227,14 +196,14 @@ previewFrame?.addEventListener("load", () => {
           selectedElement.addEventListener("blur", () => saveHistory(), { once: true });
         }
 
-        // Remove outline immediately from the actual element to never save it
-        selectedElement.style.outline = "none";
+        // Remove outline immediately so it never gets saved
+        setTimeout(() => { if(selectedElement) selectedElement.style.outline="none"; }, 100);
       }
     }
   });
 });
 
-// --- Resizing ---
+// --- RESIZING ---
 function removeHandles(doc) { doc.querySelectorAll(".resize-handle").forEach(h => h.remove()); }
 
 function makeResizable(el, doc) {
@@ -280,37 +249,3 @@ function makeResizable(el, doc) {
     doc.addEventListener("mouseup", stopResize);
   });
 }
-
-// --- Manual Save Button ---
-const saveBtn = document.createElement("button");
-saveBtn.textContent = "💾 Save Page";
-saveBtn.style.position = "fixed";
-saveBtn.style.bottom = "20px";
-saveBtn.style.right = "20px";
-saveBtn.style.padding = "10px 15px";
-saveBtn.style.background = "green";
-saveBtn.style.color = "white";
-saveBtn.style.border = "none";
-saveBtn.style.borderRadius = "5px";
-saveBtn.style.cursor = "pointer";
-saveBtn.style.zIndex = "9999";
-
-const storageKey = "onkaan-template-" + location.pathname;
-
-saveBtn.addEventListener("click", () => {
-  const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
-  const container = iframeDoc.getElementById("editor-area"); 
-  if (container) {
-    localStorage.setItem(storageKey, cleanHTMLForSave(container));
-    alert("Page saved!");
-  }
-});
-
-window.addEventListener("DOMContentLoaded", () => {
-  const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
-  const container = iframeDoc.getElementById("editor-area");
-  const saved = localStorage.getItem(storageKey);
-  if (container && saved) container.innerHTML = saved;
-});
-
-document.body.appendChild(saveBtn);
