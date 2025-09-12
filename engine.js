@@ -120,8 +120,6 @@ colorTool?.addEventListener("click", () => {
 
 // --- IMAGE TOOL ---
 imageTool?.addEventListener("click", () => {
-    if (!activeTool) activeTool = "image";
-
     const url = prompt("Enter image URL:");
     if (!url) return;
 
@@ -137,16 +135,23 @@ imageTool?.addEventListener("click", () => {
     saveHistory();
 });
 
-// --- ELEMENT SELECTION & TEXT TOOL ---
-document.addEventListener("click", (e) => {
-    const target = e.target;
+// --- ELEMENT SELECTION ---
+function getEditableElement(el) {
+    while (el && el !== editorContainer) {
+        if (el.dataset.editable === "true") return el;
+        el = el.parentElement;
+    }
+    return null;
+}
 
-    // prevent clicking toolbar buttons
+editorContainer.addEventListener("click", (e) => {
+    const target = e.target;
     if ([textTool, selectTool, colorTool, undoBtn, redoBtn, saveBtn, imageTool, buttonTool].includes(target)) return;
 
     if (activeTool === "select") {
+        const editable = getEditableElement(target) || target;
         if (selectedElement) selectedElement.style.outline = "none";
-        selectedElement = target;
+        selectedElement = editable;
         selectedElement.style.outline = "2px solid blue";
         makeResizable(selectedElement);
     } else if (activeTool === "text") {
