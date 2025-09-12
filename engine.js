@@ -21,9 +21,12 @@ const editorContainer = document.getElementById("editor-area");
 // --- TOOL TOGGLE ---
 function deactivateAllTools() {
     activeTool = null;
-    [textTool, selectTool, colorTool, imageTool, buttonTool].forEach(t => t?.classList.remove("active-tool"));
+    textTool?.classList.remove("active-tool");
+    selectTool?.classList.remove("active-tool");
+
     if (selectedElement) selectedElement.style.outline = "none";
     selectedElement = null;
+
     if (colorPanel) { colorPanel.remove(); colorPanel = null; }
     if (buttonPanel) { buttonPanel.style.display = "none"; }
 }
@@ -36,16 +39,6 @@ textTool?.addEventListener("click", () => {
 selectTool?.addEventListener("click", () => {
     if (activeTool === "select") deactivateAllTools();
     else { deactivateAllTools(); activeTool = "select"; selectTool.classList.add("active-tool"); }
-});
-
-imageTool?.addEventListener("click", () => {
-    if (activeTool === "image") deactivateAllTools();
-    else { deactivateAllTools(); activeTool = "image"; imageTool.classList.add("active-tool"); }
-});
-
-buttonTool?.addEventListener("click", () => {
-    if (activeTool === "button") deactivateAllTools();
-    else { deactivateAllTools(); activeTool = "button"; buttonTool.classList.add("active-tool"); }
 });
 
 // --- HISTORY FUNCTIONS ---
@@ -75,7 +68,7 @@ function redo() {
 
 undoBtn?.addEventListener("click", undo);
 redoBtn?.addEventListener("click", redo);
-document.addEventListener("keydown", e => {
+document.addEventListener("keydown", (e) => {
     if (e.ctrlKey && e.key === "z") { e.preventDefault(); undo(); }
     if (e.ctrlKey && e.key === "y") { e.preventDefault(); redo(); }
 });
@@ -106,12 +99,12 @@ colorTool?.addEventListener("click", () => {
     colorPanel.appendChild(okBtn);
     document.body.appendChild(colorPanel);
 
-    input.addEventListener("input", e => {
+    input.addEventListener("input", (e) => {
         if (!selectedElement) return;
         const tag = selectedElement.tagName;
         if (selectedElement.isContentEditable || ["P","H1","H2","H3","H4","H5","H6","SPAN","A","LABEL"].includes(tag)) {
             selectedElement.style.color = e.target.value;
-        } else if (["DIV","SECTION","FOOTER"].includes(tag) || selectedElement.classList.contains("product-box")) {
+        } else if (["DIV","SECTION","FOOTER","HEADER"].includes(tag) || selectedElement.classList.contains("product-box")) {
             selectedElement.style.backgroundColor = e.target.value;
         } else if (tag === "IMG") {
             selectedElement.style.borderColor = e.target.value;
@@ -125,47 +118,44 @@ colorTool?.addEventListener("click", () => {
     });
 });
 
-// --- ELEMENT SELECTION & TOOL ACTIONS ---
-document.addEventListener("click", e => {
+// --- IMAGE TOOL ---
+imageTool?.addEventListener("click", () => {
+    if (!activeTool) activeTool = "image";
+
+    const url = prompt("Enter image URL:");
+    if (!url) return;
+
+    const img = document.createElement("img");
+    img.src = url;
+    img.style.maxWidth = "300px";
+    img.style.maxHeight = "300px";
+    img.style.display = "block";
+    img.style.margin = "10px 0";
+    img.dataset.editable = "true";
+
+    editorContainer.appendChild(img);
+    saveHistory();
+});
+
+// --- ELEMENT SELECTION & TEXT TOOL ---
+document.addEventListener("click", (e) => {
     const target = e.target;
+
+    // prevent clicking toolbar buttons
     if ([textTool, selectTool, colorTool, undoBtn, redoBtn, saveBtn, imageTool, buttonTool].includes(target)) return;
 
     if (activeTool === "select") {
-        if (!target.dataset.editable) return;
         if (selectedElement) selectedElement.style.outline = "none";
         selectedElement = target;
         selectedElement.style.outline = "2px solid blue";
         makeResizable(selectedElement);
-    }
-
-    else if (activeTool === "text") {
+    } else if (activeTool === "text") {
         const newEl = document.createElement("p");
         newEl.textContent = "Edit me";
         newEl.contentEditable = "true";
         newEl.dataset.editable = "true";
         newEl.style.outline = "1px dashed gray";
         editorContainer.appendChild(newEl);
-        saveHistory();
-    }
-
-    else if (activeTool === "image") {
-        const url = prompt("Enter image URL:");
-        if (!url) return;
-        const img = document.createElement("img");
-        img.src = url;
-        img.style.maxWidth = "300px";
-        img.dataset.editable = "true";
-        img.style.outline = "1px dashed gray";
-        editorContainer.appendChild(img);
-        saveHistory();
-    }
-
-    else if (activeTool === "button") {
-        const btn = document.createElement("button");
-        btn.textContent = "Click Me";
-        btn.dataset.editable = "true";
-        btn.style.outline = "1px dashed gray";
-        editorContainer.appendChild(btn);
         saveHistory();
     }
 });
@@ -197,7 +187,8 @@ function makeResizable(el) {
     el.appendChild(handle);
 
     let isResizing = false;
-    handle.addEventListener("mousedown", e => {
+
+    handle.addEventListener("mousedown", (e) => {
         e.preventDefault(); e.stopPropagation();
         isResizing = true;
         const startX = e.clientX;
