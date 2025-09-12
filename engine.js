@@ -16,6 +16,8 @@ let historyIndex = -1;
 let colorPanel = null;
 let buttonPanel = null;
 
+const editorContainer = document.getElementById("editor-area");
+
 // --- TOOL TOGGLE ---
 function deactivateAllTools() {
     activeTool = null;
@@ -41,7 +43,6 @@ selectTool?.addEventListener("click", () => {
 
 // --- HISTORY FUNCTIONS ---
 function saveHistory() {
-    const editorContainer = document.getElementById("editor-area") || document.body;
     historyStack = historyStack.slice(0, historyIndex + 1);
     historyStack.push(editorContainer.innerHTML);
     historyIndex++;
@@ -52,7 +53,6 @@ function saveHistory() {
 function undo() {
     if (historyIndex > 0) {
         historyIndex--;
-        const editorContainer = document.getElementById("editor-area") || document.body;
         editorContainer.innerHTML = historyStack[historyIndex];
         localStorage.setItem("onkaan-historyIndex", historyIndex);
     }
@@ -61,7 +61,6 @@ function undo() {
 function redo() {
     if (historyIndex < historyStack.length - 1) {
         historyIndex++;
-        const editorContainer = document.getElementById("editor-area") || document.body;
         editorContainer.innerHTML = historyStack[historyIndex];
         localStorage.setItem("onkaan-historyIndex", historyIndex);
     }
@@ -71,7 +70,7 @@ undoBtn?.addEventListener("click", undo);
 redoBtn?.addEventListener("click", redo);
 document.addEventListener("keydown", (e) => {
     if (e.ctrlKey && e.key === "z") { e.preventDefault(); undo(); }
-    else if (e.ctrlKey && e.key === "y") { e.preventDefault(); redo(); }
+    if (e.ctrlKey && e.key === "y") { e.preventDefault(); redo(); }
 });
 
 // --- COLOR TOOL ---
@@ -123,10 +122,8 @@ colorTool?.addEventListener("click", () => {
 document.addEventListener("click", (e) => {
     const target = e.target;
 
-    // Ignore clicks on toolbar buttons
+    // prevent clicking toolbar buttons
     if ([textTool, selectTool, colorTool, undoBtn, redoBtn, saveBtn, imageTool, buttonTool].includes(target)) return;
-
-    const editorContainer = document.getElementById("editor-area") || document.body;
 
     if (activeTool === "select") {
         if (!target.dataset.editable) return; // only editable elements
@@ -174,8 +171,7 @@ function makeResizable(el) {
     let isResizing = false;
 
     handle.addEventListener("mousedown", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
+        e.preventDefault(); e.stopPropagation();
         isResizing = true;
         const startX = e.clientX;
         const startY = e.clientY;
@@ -204,9 +200,8 @@ function makeResizable(el) {
 window.addEventListener("load", () => {
     const savedHistory = JSON.parse(localStorage.getItem("onkaan-history") || "[]");
     const savedIndex = parseInt(localStorage.getItem("onkaan-historyIndex") || "-1", 10);
-    const editorContainer = document.getElementById("editor-area") || document.body;
 
-    if (Array.isArray(savedHistory) && savedHistory.length > 0 && savedIndex >= 0 && savedHistory[savedIndex]) {
+    if (savedHistory.length > 0 && savedIndex >= 0) {
         historyStack = savedHistory;
         historyIndex = savedIndex;
         editorContainer.innerHTML = historyStack[historyIndex];
