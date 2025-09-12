@@ -2,85 +2,8 @@
 <html>
 <head>
   <title>Template 1</title>
-  <style>
-    /* ✅ Product container with flexbox */
-    #productContainer {
-      display: flex;
-      flex-wrap: wrap;       /* Wraps to next line when full */
-      gap: 15px;             /* Space between product boxes */
-      margin-top: 20px;
-    }
+  <link rel="stylesheet" href="style.css">
 
-    .product-box {
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      padding: 15px;
-      width: 200px;          /* Fixed width so they align properly */
-      text-align: center;
-      background: #f9f9f9;
-      transition: 0.3s;
-    }
-
-    .product-box:hover {
-      transform: scale(1.05);
-      box-shadow: 0px 4px 8px rgba(0,0,0,0.2);
-    }
-
-    .product-image {
-      width: 100%;
-      height: auto;
-      border-radius: 5px;
-    }
-
-    .buy-now {
-      margin-top: 10px;
-      padding: 8px 12px;
-      border: none;
-      background: #007bff;
-      color: white;
-      border-radius: 4px;
-      cursor: pointer;
-      transition: 0.2s;
-    }
-
-    .buy-now:hover {
-      background: #0056b3;
-    }
-
-    /* Slideshow basics */
-    .slideshow-container {
-      width: 90%;
-      max-width: 1200px;
-      margin: 20px auto;
-      position: relative;
-      overflow: hidden;
-      border-radius: 8px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    }
-
-    .slide {
-      width: 100%;
-      display: none;
-      border-radius: 8px;
-    }
-
-    .prev, .next {
-      cursor: pointer;
-      position: absolute;
-      top: 50%;
-      padding: 10px;
-      margin-top: -20px;
-      color: white;
-      font-weight: bold;
-      font-size: 2em;
-      border-radius: 3px;
-      background-color: rgba(0,0,0,0.5);
-      user-select: none;
-    }
-
-    .prev { left: 10px; }
-    .next { right: 10px; }
-  </style>
 </head>
 <body>
   <header id="header">
@@ -135,4 +58,5 @@
 
 </body>
 </html>
+
 
