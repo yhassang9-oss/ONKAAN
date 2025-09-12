@@ -1,30 +1,101 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <title>
-            Template Your Information
-        </title>
-        <link rel="stylesheet" href="style.css">
-    </head>
-    <body>
-        <div id="Information">
-        <div id="parcelForm" style="width: 400px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; background: #f9f9f9;">
-  <h3>Parcel Information</h3>
-  
-  <label for="fullName">Full Name:</label><br>
-  <input type="text" id="fullName" placeholder="Enter full name" style="width: 100%; padding: 8px; margin-bottom: 10px;"><br>
-  
-  <label for="address">Address:</label><br>
-  <textarea id="address" placeholder="Enter address" style="width: 100%; padding: 8px; margin-bottom: 10px;"></textarea><br>
-  
-  <label for="phone">Phone Number:</label><br>
-  <input type="tel" id="phone" placeholder="Enter phone number" style="width: 100%; padding: 8px; margin-bottom: 10px;"><br>
-  
-  <label for="email">Gmail:</label><br>
-  <input type="email" id="email" placeholder="Enter Gmail" style="width: 100%; padding: 8px; margin-bottom: 15px;"><br>
-  
-  <button id="submitParcel" style="padding: 10px 20px; background: #232f3e; color: white; border: none; border-radius: 4px; cursor: pointer;">Submit</button>
-</div>
-</div>
-    </body>
+<head>
+  <title>Template 1</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* ✅ Product container with flexbox */
+    #productContainer {
+      display: flex;
+      flex-wrap: wrap;       /* Wraps to next line when full */
+      gap: 15px;             /* Space between product boxes */
+      margin-top: 20px;
+    }
+
+    .product-box {
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      padding: 15px;
+      width: 200px;          /* Fixed width so they align properly */
+      text-align: center;
+      background: #f9f9f9;
+      transition: 0.3s;
+    }
+
+    .product-box:hover {
+      transform: scale(1.05);
+      box-shadow: 0px 4px 8px rgba(0,0,0,0.2);
+    }
+
+    .product-image {
+      width: 100%;
+      height: auto;
+      border-radius: 5px;
+    }
+
+    .buy-now {
+      margin-top: 10px;
+      padding: 8px 12px;
+      border: none;
+      background: #007bff;
+      color: white;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .buy-now:hover {
+      background: #0056b3;
+    }
+  </style>
+</head>
+<body>
+  <header id="header">
+    <div id="div1">
+      <img src="your logo.jpg" id="logo"></img><br>
+      <h2 id="heading title">Your Title</h2>
+    </div>
+  </header>
+
+  <div id="div2">
+    <input type="text" placeholder="Search..." id="searchbar">
+    <button type="submit" id="btn1">Search</button> <br><br>
+    <nav>
+      <ul class="horizontal-list" id="nav">
+        <li><a href="index.html" id="home">Home</a></li>
+        <li><a href="#" id="about">About</a></li>
+        <li><a href="#" id="services">Services</a></li>
+        <li><a href="#" id="contact">Contact</a></li>
+      </ul>
+    </nav><br><br>
+
+    <!-- Slideshow -->
+    <div class="slideshow-container">
+      <img class="slide" src="banner1.jpg" alt="Banner 1">
+      <img class="slide" src="banner2.jpg" alt="Banner 2">
+      <img class="slide" src="banner3.jpg" alt="Banner 3" id="banner3">
+
+      <!-- Arrows -->
+      <a class="prev" onclick="changeSlide(-1)">&#10094;</a>
+      <a class="next" onclick="changeSlide(1)">&#10095;</a>
+    </div>
+
+    <!-- ✅ Products Section -->
+    <h2 style="margin-top:30px;">Our Products</h2>
+    <div id="productContainer">
+      <!-- Example product -->
+      <a href="product.html" class="product-link">
+        <div class="product-box">
+          <img src="product.jpg" alt="Product Image" class="product-image">
+          <h2 class="product-title">Product Name</h2>
+          <p class="product-price">₹999</p>
+          <button class="buy-now">Buy Now</button>
+        </div>
+      </a>
+    </div>
+  </div>
+
+  <script src="index.js"></script>
+  <footer id="footer1">© 2025 Your Company</footer>
+</body>
 </html>
