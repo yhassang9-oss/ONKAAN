@@ -17,7 +17,7 @@ let colorPanel = null;
 let historyStack = [];
 let historyIndex = -1;
 
-// Access iframe document
+// --- HELPERS ---
 function getEditorDocument() {
     return previewFrame.contentDocument || previewFrame.contentWindow.document;
 }
@@ -39,11 +39,13 @@ function deactivateAllTools() {
 }
 
 textTool?.addEventListener("click", () => {
-    activeTool === "text" ? deactivateAllTools() : (() => { deactivateAllTools(); activeTool = "text"; textTool.classList.add("active-tool"); })();
+    if (activeTool === "text") deactivateAllTools();
+    else { deactivateAllTools(); activeTool = "text"; textTool.classList.add("active-tool"); }
 });
 
 selectTool?.addEventListener("click", () => {
-    activeTool === "select" ? deactivateAllTools() : (() => { deactivateAllTools(); activeTool = "select"; selectTool.classList.add("active-tool"); })();
+    if (activeTool === "select") deactivateAllTools();
+    else { deactivateAllTools(); activeTool = "select"; selectTool.classList.add("active-tool"); }
 });
 
 // --- HISTORY ---
@@ -62,6 +64,7 @@ function undo() {
     historyIndex--;
     const container = getEditorContainer();
     container.innerHTML = historyStack[historyIndex];
+    initEditorEvents(); // Reattach event listeners
 }
 
 function redo() {
@@ -69,6 +72,7 @@ function redo() {
     historyIndex++;
     const container = getEditorContainer();
     container.innerHTML = historyStack[historyIndex];
+    initEditorEvents(); // Reattach event listeners
 }
 
 undoBtn?.addEventListener("click", undo);
@@ -127,7 +131,7 @@ colorTool?.addEventListener("click", () => {
 imageTool?.addEventListener("click", () => {
     const url = prompt("Enter image URL:");
     if (!url) return;
-    const img = document.createElement("img");
+    const img = getEditorDocument().createElement("img");
     img.src = url;
     img.style.maxWidth = "300px";
     img.style.maxHeight = "300px";
@@ -174,7 +178,7 @@ function makeResizable(el) {
     removeHandles();
     el.style.position = "relative";
 
-    const handle = document.createElement("div");
+    const handle = getEditorDocument().createElement("div");
     handle.className = "resize-handle";
     handle.style.width = "10px";
     handle.style.height = "10px";
@@ -220,19 +224,18 @@ saveBtn?.addEventListener("click", () => {
     alert("Changes saved!");
 });
 
-// --- RESTORE HISTORY ON LOAD ---
+// --- RESTORE HISTORY & INITIALIZE ---
 window.addEventListener("load", () => {
     const savedHistory = JSON.parse(localStorage.getItem("onkaan-history") || "[]");
     const savedIndex = parseInt(localStorage.getItem("onkaan-historyIndex") || "-1");
 
-    if (savedHistory.length > 0 && savedIndex >= 0) {
-        historyStack = savedHistory;
-        historyIndex = savedIndex;
-        getEditorContainer().innerHTML = historyStack[historyIndex];
-    }
-
-    // Initialize editor click events inside iframe
     previewFrame.addEventListener("load", () => {
+        if (savedHistory.length > 0 && savedIndex >= 0) {
+            historyStack = savedHistory;
+            historyIndex = savedIndex;
+            getEditorContainer().innerHTML = historyStack[historyIndex];
+        }
+
         initEditorEvents();
     });
 });
