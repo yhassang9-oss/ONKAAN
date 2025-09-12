@@ -207,6 +207,7 @@ previewFrame?.addEventListener("load", () => {
   const editorContainer = iframeDoc.getElementById("editor-area");
   if (!editorContainer) return;
 
+  // Load history if available
   const savedHistory = JSON.parse(localStorage.getItem("onkaan-history") || "[]");
   const savedIndex = parseInt(localStorage.getItem("onkaan-historyIndex") || "-1", 10);
 
@@ -215,6 +216,34 @@ previewFrame?.addEventListener("load", () => {
     historyIndex = savedIndex;
     editorContainer.innerHTML = historyStack[historyIndex];
   }
+
+  // ✅ Enable element selection inside iframe
+  editorContainer.addEventListener("click", (e) => {
+    if (activeTool !== "select") return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (selectedElement) selectedElement.style.outline = "none";
+
+    selectedElement = e.target;
+    selectedElement.style.outline = "2px solid blue";
+
+    makeResizable(selectedElement, iframeDoc);
+  });
+
+  // ✅ Double-click to edit text
+  editorContainer.addEventListener("dblclick", (e) => {
+    if (activeTool !== "select") return;
+    if (e.target.tagName.match(/^(P|H1|H2|H3|H4|H5|H6|SPAN|A|LABEL|DIV)$/)) {
+      e.target.contentEditable = true;
+      e.target.focus();
+
+      e.target.addEventListener("blur", () => {
+        e.target.contentEditable = false;
+        saveHistory(true); // ✅ save after finishing edit
+      }, { once: true });
+    }
+  });
 });
 
 // --- SAVE BUTTON (manual only) ---
