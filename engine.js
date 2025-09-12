@@ -6,6 +6,7 @@ const colorTool = document.getElementById("color");
 const imageTool = document.getElementById("image");
 const buttonTool = document.getElementById("Buttons");
 const previewFrame = document.getElementById("previewFrame");
+const saveBtn = document.getElementById("saveBtn"); // ✅ Save button
 
 let activeTool = null;
 let selectedElement = null;
@@ -106,7 +107,7 @@ document.addEventListener("keydown", (e) => {
   else if (e.ctrlKey && e.key === "y") { e.preventDefault(); redo(); }
 });
 
-// --- COLOR TOOL (Smooth Version) ---
+// --- COLOR TOOL ---
 colorTool?.addEventListener("click", () => {
   if (!selectedElement) return alert("Select an element first!");
   if (colorPanel) { colorPanel.remove(); colorPanel = null; return; }
@@ -119,20 +120,23 @@ colorTool?.addEventListener("click", () => {
   colorPanel.style.zIndex = "9999";
   document.body.appendChild(colorPanel);
 
-  // Use 'input' for real-time smooth update
+  // Preview in real-time but DO NOT save
   colorPanel.addEventListener("input", (e) => {
     if (!selectedElement) return;
     const tag = selectedElement.tagName;
 
     if (selectedElement.isContentEditable || ["P","H1","H2","H3","H4","H5","H6","SPAN","A","LABEL"].includes(tag)) {
       selectedElement.style.color = e.target.value;
-    } else if (tag === "DIV" || tag === "SECTION" || tag === "FOOTER" || selectedElement.classList.contains("product-box")) {
+    } else if (["DIV","SECTION","FOOTER"].includes(tag) || selectedElement.classList.contains("product-box")) {
       selectedElement.style.backgroundColor = e.target.value;
     } else if (tag === "IMG") {
       selectedElement.style.borderColor = e.target.value;
     }
+  });
 
-    saveHistory(); // save each change
+  // Save only when user finishes choosing (mouse released / input closed)
+  colorPanel.addEventListener("change", () => {
+    saveHistory();
   });
 });
 
@@ -149,58 +153,13 @@ previewFrame?.addEventListener("load", () => {
     historyStack = savedHistory;
     historyIndex = savedIndex;
     editorContainer.innerHTML = historyStack[historyIndex];
-  } else { saveHistory(); }
+  }
+});
 
-  iframeDoc.addEventListener("click", (e) => {
-    const el = e.target;
-
-    // --- TEXT TOOL ---
-    if (activeTool === "text") {
-      const newText = iframeDoc.createElement("div");
-      newText.textContent = "Type here...";
-      newText.contentEditable = "true";
-      newText.dataset.editable = "true";
-      newText.style.position = "absolute";
-      newText.style.left = e.pageX + "px";
-      newText.style.top = e.pageY + "px";
-      newText.style.fontSize = "16px";
-      newText.style.color = "black";
-      newText.style.outline = "none";
-      newText.style.cursor = "text";
-      editorContainer.appendChild(newText);
-      newText.focus();
-
-      saveHistory();
-      deactivateAllTools();
-      return;
-    }
-
-    // --- SELECT TOOL ---
-    if (activeTool === "select") {
-      e.preventDefault();
-      e.stopPropagation();
-      if (selectedElement) removeHandles(iframeDoc);
-
-      if ((el.dataset.editable === "true") || el.tagName === "BUTTON" || el.tagName === "IMG" ||
-          el.classList.contains("slideshow-container") || el.tagName === "DIV" ||
-          ["P","H1","H2","H3","H4","H5","H6","SPAN","A","LABEL"].includes(el.tagName)) {
-
-        selectedElement = el;
-        selectedElement.style.outline = "2px dashed red";
-        makeResizable(selectedElement, iframeDoc);
-
-        if (["P","H1","H2","H3","H4","H5","H6","SPAN","A","LABEL"].includes(el.tagName)) {
-          selectedElement.contentEditable = "true";
-          selectedElement.dataset.editable = "true";
-          selectedElement.focus();
-          selectedElement.addEventListener("blur", () => saveHistory(), { once: true });
-        }
-
-        // Remove outline immediately so it never gets saved
-        setTimeout(() => { if(selectedElement) selectedElement.style.outline="none"; }, 100);
-      }
-    }
-  });
+// --- SAVE BUTTON ---
+saveBtn?.addEventListener("click", () => {
+  saveHistory();
+  alert("Changes saved!");
 });
 
 // --- RESIZING ---
@@ -239,7 +198,6 @@ function makeResizable(el, doc) {
     }
 
     function stopResize() {
-      if (isResizing) saveHistory();
       isResizing = false;
       doc.removeEventListener("mousemove", resizeMove);
       doc.removeEventListener("mouseup", stopResize);
