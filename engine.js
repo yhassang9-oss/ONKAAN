@@ -6,7 +6,7 @@ const colorTool = document.getElementById("color");
 const imageTool = document.getElementById("image");
 const buttonTool = document.getElementById("Buttons");
 const previewFrame = document.getElementById("previewFrame");
-const saveBtn = document.getElementById("saveBtn"); // ✅ Save button
+const saveBtn = document.getElementById("saveBtn");
 
 let activeTool = null;
 let selectedElement = null;
@@ -66,9 +66,7 @@ function cleanHTMLForSave(container) {
   return tempHTML.innerHTML;
 }
 
-function saveHistory(force = false) {
-  if (!force) return; // ✅ only save manually
-
+function saveHistory() {
   const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
   const editorContainer = iframeDoc.getElementById("editor-area");
   if (!editorContainer) return;
@@ -109,94 +107,50 @@ document.addEventListener("keydown", (e) => {
   else if (e.ctrlKey && e.key === "y") { e.preventDefault(); redo(); }
 });
 
-// --- COLOR TOOL HELPERS ---
-function rgbToHex(rgb) {
-  if (!rgb) return "#000000";
-  if (rgb[0] === "#") return rgb;
-  const m = rgb.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
-  if (m) {
-    return (
-      "#" +
-      Number(m[1]).toString(16).padStart(2, "0") +
-      Number(m[2]).toString(16).padStart(2, "0") +
-      Number(m[3]).toString(16).padStart(2, "0")
-    );
-  }
-  return "#000000";
-}
-
 // --- COLOR TOOL ---
 colorTool?.addEventListener("click", () => {
   if (!selectedElement) return alert("Select an element first!");
-
-  // Close existing panel
   if (colorPanel) { colorPanel.remove(); colorPanel = null; return; }
 
-  const el = selectedElement;
-  const tag = el.tagName;
-  const isText = el.isContentEditable || ["P","H1","H2","H3","H4","H5","H6","SPAN","A","LABEL"].includes(tag);
-  const isBg = ["DIV","SECTION","FOOTER"].includes(tag) || el.classList.contains("product-box");
-  const isImg = tag === "IMG";
-  const property = isText ? "color" : (isImg ? "borderColor" : "backgroundColor");
-
-  const prevValue = window.getComputedStyle(el)[property];
-  let pendingColor = rgbToHex(prevValue);
-  let rafId = null;
-
   // Panel container
-  const panel = document.createElement("div");
-  panel.style.position = "fixed";
-  panel.style.top = "20px";
-  panel.style.left = "20px";
-  panel.style.zIndex = "9999";
-  panel.style.display = "flex";
-  panel.style.gap = "8px";
-  panel.style.alignItems = "center";
-  panel.style.padding = "8px";
-  panel.style.background = "#fff";
-  panel.style.border = "1px solid #ccc";
-  panel.style.borderRadius = "6px";
+  colorPanel = document.createElement("div");
+  colorPanel.style.position = "fixed";
+  colorPanel.style.top = "20px";
+  colorPanel.style.left = "20px";
+  colorPanel.style.padding = "10px";
+  colorPanel.style.background = "#fff";
+  colorPanel.style.border = "1px solid #ccc";
+  colorPanel.style.zIndex = "9999";
 
-  // Color input
   const input = document.createElement("input");
   input.type = "color";
-  input.value = pendingColor;
+  input.value = "#000000";
 
-  // OK button
   const okBtn = document.createElement("button");
   okBtn.textContent = "OK";
+  okBtn.style.marginLeft = "10px";
 
-  // Cancel button
-  const cancelBtn = document.createElement("button");
-  cancelBtn.textContent = "Cancel";
+  colorPanel.appendChild(input);
+  colorPanel.appendChild(okBtn);
+  document.body.appendChild(colorPanel);
 
-  panel.appendChild(input);
-  panel.appendChild(okBtn);
-  panel.appendChild(cancelBtn);
-  document.body.appendChild(panel);
-  colorPanel = panel;
-
-  // Live preview with requestAnimationFrame
+  // Live preview
   input.addEventListener("input", (e) => {
-    pendingColor = e.target.value;
-    if (rafId) cancelAnimationFrame(rafId);
-    rafId = requestAnimationFrame(() => {
-      el.style[property] = pendingColor;
-    });
+    if (!selectedElement) return;
+    const tag = selectedElement.tagName;
+    if (selectedElement.isContentEditable || ["P","H1","H2","H3","H4","H5","H6","SPAN","A","LABEL"].includes(tag)) {
+      selectedElement.style.color = e.target.value;
+    } else if (["DIV","SECTION","FOOTER"].includes(tag) || selectedElement.classList.contains("product-box")) {
+      selectedElement.style.backgroundColor = e.target.value;
+    } else if (tag === "IMG") {
+      selectedElement.style.borderColor = e.target.value;
+    }
   });
 
-  // OK -> commit & save
+  // Save only when OK clicked
   okBtn.addEventListener("click", () => {
-    el.style[property] = pendingColor;
-    saveHistory(true); // ✅ save once
-    panel.remove();
-    colorPanel = null;
-  });
-
-  // Cancel -> revert
-  cancelBtn.addEventListener("click", () => {
-    el.style[property] = prevValue;
-    panel.remove();
+    saveHistory();
+    colorPanel.remove();
     colorPanel = null;
   });
 });
@@ -207,7 +161,7 @@ previewFrame?.addEventListener("load", () => {
   const editorContainer = iframeDoc.getElementById("editor-area");
   if (!editorContainer) return;
 
-  // Load history if available
+  // Restore history
   const savedHistory = JSON.parse(localStorage.getItem("onkaan-history") || "[]");
   const savedIndex = parseInt(localStorage.getItem("onkaan-historyIndex") || "-1", 10);
 
@@ -217,38 +171,31 @@ previewFrame?.addEventListener("load", () => {
     editorContainer.innerHTML = historyStack[historyIndex];
   }
 
-  // ✅ Enable element selection inside iframe
-  editorContainer.addEventListener("click", (e) => {
-    if (activeTool !== "select") return;
-    e.preventDefault();
-    e.stopPropagation();
-
-    if (selectedElement) selectedElement.style.outline = "none";
-
-    selectedElement = e.target;
-    selectedElement.style.outline = "2px solid blue";
-
-    makeResizable(selectedElement, iframeDoc);
-  });
-
-  // ✅ Double-click to edit text
-  editorContainer.addEventListener("dblclick", (e) => {
-    if (activeTool !== "select") return;
-    if (e.target.tagName.match(/^(P|H1|H2|H3|H4|H5|H6|SPAN|A|LABEL|DIV)$/)) {
-      e.target.contentEditable = true;
-      e.target.focus();
-
-      e.target.addEventListener("blur", () => {
-        e.target.contentEditable = false;
-        saveHistory(true); // ✅ save after finishing edit
-      }, { once: true });
+  // Selection logic inside iframe
+  iframeDoc.addEventListener("click", (e) => {
+    if (activeTool === "select") {
+      e.preventDefault();
+      e.stopPropagation();
+      if (selectedElement) selectedElement.style.outline = "none";
+      selectedElement = e.target;
+      selectedElement.style.outline = "2px solid blue";
+      makeResizable(selectedElement, iframeDoc);
+    } else if (activeTool === "text") {
+      e.preventDefault();
+      e.stopPropagation();
+      const newEl = iframeDoc.createElement("p");
+      newEl.textContent = "Edit me";
+      newEl.contentEditable = "true";
+      newEl.style.outline = "1px dashed gray";
+      editorContainer.appendChild(newEl);
+      saveHistory();
     }
   });
 });
 
-// --- SAVE BUTTON (manual only) ---
+// --- SAVE BUTTON ---
 saveBtn?.addEventListener("click", () => {
-  saveHistory(true); // ✅ force manual save
+  saveHistory();
   alert("Changes saved!");
 });
 
@@ -291,6 +238,7 @@ function makeResizable(el, doc) {
       isResizing = false;
       doc.removeEventListener("mousemove", resizeMove);
       doc.removeEventListener("mouseup", stopResize);
+      saveHistory();
     }
 
     doc.addEventListener("mousemove", resizeMove);
