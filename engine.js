@@ -1,3 +1,4 @@
+// --- TOOL REFERENCES ---
 const textTool = document.getElementById("textTool");
 const selectTool = document.getElementById("selecttool");
 const undoBtn = document.getElementById("undo");
@@ -5,9 +6,9 @@ const redoBtn = document.getElementById("redo");
 const colorTool = document.getElementById("color");
 const imageTool = document.getElementById("image");
 const buttonTool = document.getElementById("Buttons");
-const previewFrame = document.getElementById("previewFrame");
 const saveBtn = document.getElementById("saveBtn");
 
+// --- STATE ---
 let activeTool = null;
 let selectedElement = null;
 let historyStack = [];
@@ -17,231 +18,195 @@ let buttonPanel = null;
 
 // --- TOOL TOGGLE ---
 function deactivateAllTools() {
-  activeTool = null;
-  textTool?.classList.remove("active-tool");
-  selectTool?.classList.remove("active-tool");
+    activeTool = null;
+    textTool?.classList.remove("active-tool");
+    selectTool?.classList.remove("active-tool");
 
-  hideGridLines();
-  removeHandles(previewFrame.contentDocument || previewFrame.contentWindow.document);
+    if (selectedElement) selectedElement.style.outline = "none";
+    selectedElement = null;
 
-  if (selectedElement) selectedElement.style.outline = "none";
-  selectedElement = null;
-
-  if (colorPanel) { colorPanel.remove(); colorPanel = null; }
-  if (buttonPanel) { buttonPanel.style.display = "none"; }
+    if (colorPanel) { colorPanel.remove(); colorPanel = null; }
+    if (buttonPanel) { buttonPanel.style.display = "none"; }
 }
 
 textTool?.addEventListener("click", () => {
-  if (activeTool === "text") deactivateAllTools();
-  else { deactivateAllTools(); activeTool = "text"; textTool.classList.add("active-tool"); }
+    if (activeTool === "text") deactivateAllTools();
+    else { deactivateAllTools(); activeTool = "text"; textTool.classList.add("active-tool"); }
 });
 
 selectTool?.addEventListener("click", () => {
-  if (activeTool === "select") deactivateAllTools();
-  else { deactivateAllTools(); activeTool = "select"; selectTool.classList.add("active-tool"); showGridLines(); }
+    if (activeTool === "select") deactivateAllTools();
+    else { deactivateAllTools(); activeTool = "select"; selectTool.classList.add("active-tool"); }
 });
 
-// --- GRID LINES ---
-function showGridLines() {
-  const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
-  if (!iframeDoc) return;
-  iframeDoc.body.style.backgroundImage = `
-    linear-gradient(to right, rgba(0,0,0,0.1) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(0,0,0,0.1) 1px, transparent 1px)
-  `;
-  iframeDoc.body.style.backgroundSize = "20px 20px";
-}
-
-function hideGridLines() {
-  const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
-  if (!iframeDoc) return;
-  iframeDoc.body.style.backgroundImage = "none";
-}
-
 // --- HISTORY FUNCTIONS ---
-function cleanHTMLForSave(container) {
-  const tempHTML = container.cloneNode(true);
-  tempHTML.querySelectorAll(".resize-handle").forEach(h => h.remove());
-  tempHTML.querySelectorAll("*").forEach(el => el.style.outline = "none");
-  return tempHTML.innerHTML;
-}
-
 function saveHistory() {
-  const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
-  const editorContainer = iframeDoc.getElementById("editor-area");
-  if (!editorContainer) return;
-
-  historyStack = historyStack.slice(0, historyIndex + 1);
-  historyStack.push(cleanHTMLForSave(editorContainer));
-  historyIndex++;
-
-  localStorage.setItem("onkaan-history", JSON.stringify(historyStack));
-  localStorage.setItem("onkaan-historyIndex", historyIndex);
+    const editorContainer = document.getElementById("editor-area") || document.body;
+    historyStack = historyStack.slice(0, historyIndex + 1);
+    historyStack.push(editorContainer.innerHTML);
+    historyIndex++;
+    localStorage.setItem("onkaan-history", JSON.stringify(historyStack));
+    localStorage.setItem("onkaan-historyIndex", historyIndex);
 }
 
 function undo() {
-  if (historyIndex > 0) {
-    historyIndex--;
-    const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
-    const editorContainer = iframeDoc.getElementById("editor-area");
-    if (editorContainer) editorContainer.innerHTML = historyStack[historyIndex];
-    localStorage.setItem("onkaan-historyIndex", historyIndex);
-  }
+    if (historyIndex > 0) {
+        historyIndex--;
+        const editorContainer = document.getElementById("editor-area") || document.body;
+        editorContainer.innerHTML = historyStack[historyIndex];
+        localStorage.setItem("onkaan-historyIndex", historyIndex);
+    }
 }
 
 function redo() {
-  if (historyIndex < historyStack.length - 1) {
-    historyIndex++;
-    const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
-    const editorContainer = iframeDoc.getElementById("editor-area");
-    if (editorContainer) editorContainer.innerHTML = historyStack[historyIndex];
-    localStorage.setItem("onkaan-historyIndex", historyIndex);
-  }
+    if (historyIndex < historyStack.length - 1) {
+        historyIndex++;
+        const editorContainer = document.getElementById("editor-area") || document.body;
+        editorContainer.innerHTML = historyStack[historyIndex];
+        localStorage.setItem("onkaan-historyIndex", historyIndex);
+    }
 }
 
 undoBtn?.addEventListener("click", undo);
 redoBtn?.addEventListener("click", redo);
-
 document.addEventListener("keydown", (e) => {
-  if (e.ctrlKey && e.key === "z") { e.preventDefault(); undo(); }
-  else if (e.ctrlKey && e.key === "y") { e.preventDefault(); redo(); }
+    if (e.ctrlKey && e.key === "z") { e.preventDefault(); undo(); }
+    else if (e.ctrlKey && e.key === "y") { e.preventDefault(); redo(); }
 });
 
 // --- COLOR TOOL ---
 colorTool?.addEventListener("click", () => {
-  if (!selectedElement) return alert("Select an element first!");
-  if (colorPanel) { colorPanel.remove(); colorPanel = null; return; }
+    if (!selectedElement) return alert("Select an element first!");
+    if (colorPanel) { colorPanel.remove(); colorPanel = null; return; }
 
-  // Panel container
-  colorPanel = document.createElement("div");
-  colorPanel.style.position = "fixed";
-  colorPanel.style.top = "20px";
-  colorPanel.style.left = "20px";
-  colorPanel.style.padding = "10px";
-  colorPanel.style.background = "#fff";
-  colorPanel.style.border = "1px solid #ccc";
-  colorPanel.style.zIndex = "9999";
+    colorPanel = document.createElement("div");
+    colorPanel.style.position = "fixed";
+    colorPanel.style.top = "20px";
+    colorPanel.style.left = "20px";
+    colorPanel.style.padding = "10px";
+    colorPanel.style.background = "#fff";
+    colorPanel.style.border = "1px solid #ccc";
+    colorPanel.style.zIndex = "9999";
 
-  const input = document.createElement("input");
-  input.type = "color";
-  input.value = "#000000";
+    const input = document.createElement("input");
+    input.type = "color";
+    input.value = "#000000";
 
-  const okBtn = document.createElement("button");
-  okBtn.textContent = "OK";
-  okBtn.style.marginLeft = "10px";
+    const okBtn = document.createElement("button");
+    okBtn.textContent = "OK";
+    okBtn.style.marginLeft = "10px";
 
-  colorPanel.appendChild(input);
-  colorPanel.appendChild(okBtn);
-  document.body.appendChild(colorPanel);
+    colorPanel.appendChild(input);
+    colorPanel.appendChild(okBtn);
+    document.body.appendChild(colorPanel);
 
-  // Live preview
-  input.addEventListener("input", (e) => {
-    if (!selectedElement) return;
-    const tag = selectedElement.tagName;
-    if (selectedElement.isContentEditable || ["P","H1","H2","H3","H4","H5","H6","SPAN","A","LABEL"].includes(tag)) {
-      selectedElement.style.color = e.target.value;
-    } else if (["DIV","SECTION","FOOTER"].includes(tag) || selectedElement.classList.contains("product-box")) {
-      selectedElement.style.backgroundColor = e.target.value;
-    } else if (tag === "IMG") {
-      selectedElement.style.borderColor = e.target.value;
-    }
-  });
+    input.addEventListener("input", (e) => {
+        if (!selectedElement) return;
+        const tag = selectedElement.tagName;
+        if (selectedElement.isContentEditable || ["P","H1","H2","H3","H4","H5","H6","SPAN","A","LABEL"].includes(tag)) {
+            selectedElement.style.color = e.target.value;
+        } else if (["DIV","SECTION","FOOTER"].includes(tag) || selectedElement.classList.contains("product-box")) {
+            selectedElement.style.backgroundColor = e.target.value;
+        } else if (tag === "IMG") {
+            selectedElement.style.borderColor = e.target.value;
+        }
+    });
 
-  // Save only when OK clicked
-  okBtn.addEventListener("click", () => {
-    saveHistory();
-    colorPanel.remove();
-    colorPanel = null;
-  });
+    okBtn.addEventListener("click", () => {
+        saveHistory();
+        colorPanel.remove();
+        colorPanel = null;
+    });
 });
 
-// --- IFRAME LOGIC ---
-previewFrame?.addEventListener("load", () => {
-  const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
-  const editorContainer = iframeDoc.getElementById("editor-area");
-  if (!editorContainer) return;
-
-  // Restore history
-  const savedHistory = JSON.parse(localStorage.getItem("onkaan-history") || "[]");
-  const savedIndex = parseInt(localStorage.getItem("onkaan-historyIndex") || "-1", 10);
-
-  if (savedHistory.length > 0 && savedIndex >= 0) {
-    historyStack = savedHistory;
-    historyIndex = savedIndex;
-    editorContainer.innerHTML = historyStack[historyIndex];
-  }
-
-  // Selection logic inside iframe
-  iframeDoc.addEventListener("click", (e) => {
-    if (activeTool === "select") {
-      e.preventDefault();
-      e.stopPropagation();
-      if (selectedElement) selectedElement.style.outline = "none";
-      selectedElement = e.target;
-      selectedElement.style.outline = "2px solid blue";
-      makeResizable(selectedElement, iframeDoc);
+// --- ELEMENT SELECTION & TEXT TOOL ---
+document.addEventListener("click", (e) => {
+    const target = e.target;
+    if (activeTool === "select" && target.dataset.editable === "true") {
+        e.preventDefault();
+        e.stopPropagation();
+        if (selectedElement) selectedElement.style.outline = "none";
+        selectedElement = target;
+        selectedElement.style.outline = "2px solid blue";
+        makeResizable(selectedElement);
     } else if (activeTool === "text") {
-      e.preventDefault();
-      e.stopPropagation();
-      const newEl = iframeDoc.createElement("p");
-      newEl.textContent = "Edit me";
-      newEl.contentEditable = "true";
-      newEl.style.outline = "1px dashed gray";
-      editorContainer.appendChild(newEl);
-      saveHistory();
+        e.preventDefault();
+        e.stopPropagation();
+        const editorContainer = document.getElementById("editor-area") || document.body;
+        const newEl = document.createElement("p");
+        newEl.textContent = "Edit me";
+        newEl.contentEditable = "true";
+        newEl.dataset.editable = "true";
+        newEl.style.outline = "1px dashed gray";
+        editorContainer.appendChild(newEl);
+        saveHistory();
     }
-  });
 });
 
 // --- SAVE BUTTON ---
 saveBtn?.addEventListener("click", () => {
-  saveHistory();
-  alert("Changes saved!");
+    saveHistory();
+    alert("Changes saved!");
 });
 
 // --- RESIZING ---
-function removeHandles(doc) { doc.querySelectorAll(".resize-handle").forEach(h => h.remove()); }
-
-function makeResizable(el, doc) {
-  removeHandles(doc);
-  const handle = doc.createElement("div");
-  handle.className = "resize-handle";
-  handle.style.width = "10px";
-  handle.style.height = "10px";
-  handle.style.background = "red";
-  handle.style.position = "absolute";
-  handle.style.right = "0";
-  handle.style.bottom = "0";
-  handle.style.cursor = "se-resize";
-  handle.style.zIndex = "9999";
-
-  el.style.position = "relative";
-  el.appendChild(handle);
-
-  let isResizing = false;
-
-  handle.addEventListener("mousedown", (e) => {
-    e.preventDefault(); e.stopPropagation();
-    isResizing = true;
-    const startX = e.clientX;
-    const startY = e.clientY;
-    const startWidth = parseInt(getComputedStyle(el).width, 10);
-    const startHeight = parseInt(getComputedStyle(el).height, 10);
-
-    function resizeMove(ev) {
-      if (!isResizing) return;
-      el.style.width = startWidth + (ev.clientX - startX) + "px";
-      el.style.height = startHeight + (ev.clientY - startY) + "px";
-    }
-
-    function stopResize() {
-      isResizing = false;
-      doc.removeEventListener("mousemove", resizeMove);
-      doc.removeEventListener("mouseup", stopResize);
-      saveHistory();
-    }
-
-    doc.addEventListener("mousemove", resizeMove);
-    doc.addEventListener("mouseup", stopResize);
-  });
+function removeHandles() {
+    document.querySelectorAll(".resize-handle").forEach(h => h.remove());
 }
+
+function makeResizable(el) {
+    removeHandles();
+    const handle = document.createElement("div");
+    handle.className = "resize-handle";
+    handle.style.width = "10px";
+    handle.style.height = "10px";
+    handle.style.background = "red";
+    handle.style.position = "absolute";
+    handle.style.right = "0";
+    handle.style.bottom = "0";
+    handle.style.cursor = "se-resize";
+    handle.style.zIndex = "9999";
+
+    el.style.position = "relative";
+    el.appendChild(handle);
+
+    let isResizing = false;
+
+    handle.addEventListener("mousedown", (e) => {
+        e.preventDefault(); e.stopPropagation();
+        isResizing = true;
+        const startX = e.clientX;
+        const startY = e.clientY;
+        const startWidth = parseInt(getComputedStyle(el).width, 10);
+        const startHeight = parseInt(getComputedStyle(el).height, 10);
+
+        function resizeMove(ev) {
+            if (!isResizing) return;
+            el.style.width = startWidth + (ev.clientX - startX) + "px";
+            el.style.height = startHeight + (ev.clientY - startY) + "px";
+        }
+
+        function stopResize() {
+            isResizing = false;
+            document.removeEventListener("mousemove", resizeMove);
+            document.removeEventListener("mouseup", stopResize);
+            saveHistory();
+        }
+
+        document.addEventListener("mousemove", resizeMove);
+        document.addEventListener("mouseup", stopResize);
+    });
+}
+
+// --- RESTORE HISTORY ON LOAD ---
+window.addEventListener("load", () => {
+    const savedHistory = JSON.parse(localStorage.getItem("onkaan-history") || "[]");
+    const savedIndex = parseInt(localStorage.getItem("onkaan-historyIndex") || "-1", 10);
+    const editorContainer = document.getElementById("editor-area") || document.body;
+
+    if (savedHistory.length > 0 && savedIndex >= 0) {
+        historyStack = savedHistory;
+        historyIndex = savedIndex;
+        editorContainer.innerHTML = historyStack[historyIndex];
+    }
+});
