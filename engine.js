@@ -122,12 +122,14 @@ colorTool?.addEventListener("click", () => {
 // --- ELEMENT SELECTION & TEXT TOOL ---
 document.addEventListener("click", (e) => {
     const target = e.target;
-    // Prevent clicks on toolbar buttons
+
+    // Ignore clicks on toolbar buttons
     if ([textTool, selectTool, colorTool, undoBtn, redoBtn, saveBtn, imageTool, buttonTool].includes(target)) return;
 
     const editorContainer = document.getElementById("editor-area") || document.body;
 
     if (activeTool === "select") {
+        if (!target.dataset.editable) return; // only editable elements
         if (selectedElement) selectedElement.style.outline = "none";
         selectedElement = target;
         selectedElement.style.outline = "2px solid blue";
@@ -136,6 +138,7 @@ document.addEventListener("click", (e) => {
         const newEl = document.createElement("p");
         newEl.textContent = "Edit me";
         newEl.contentEditable = "true";
+        newEl.dataset.editable = "true";
         newEl.style.outline = "1px dashed gray";
         editorContainer.appendChild(newEl);
         saveHistory();
@@ -171,7 +174,8 @@ function makeResizable(el) {
     let isResizing = false;
 
     handle.addEventListener("mousedown", (e) => {
-        e.preventDefault(); e.stopPropagation();
+        e.preventDefault();
+        e.stopPropagation();
         isResizing = true;
         const startX = e.clientX;
         const startY = e.clientY;
@@ -202,7 +206,7 @@ window.addEventListener("load", () => {
     const savedIndex = parseInt(localStorage.getItem("onkaan-historyIndex") || "-1", 10);
     const editorContainer = document.getElementById("editor-area") || document.body;
 
-    if (savedHistory.length > 0 && savedIndex >= 0) {
+    if (Array.isArray(savedHistory) && savedHistory.length > 0 && savedIndex >= 0 && savedHistory[savedIndex]) {
         historyStack = savedHistory;
         historyIndex = savedIndex;
         editorContainer.innerHTML = historyStack[historyIndex];
