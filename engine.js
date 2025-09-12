@@ -66,7 +66,9 @@ function cleanHTMLForSave(container) {
   return tempHTML.innerHTML;
 }
 
-function saveHistory() {
+function saveHistory(force = false) {
+  if (!force) return; // ✅ only save manually
+
   const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
   const editorContainer = iframeDoc.getElementById("editor-area");
   if (!editorContainer) return;
@@ -107,36 +109,95 @@ document.addEventListener("keydown", (e) => {
   else if (e.ctrlKey && e.key === "y") { e.preventDefault(); redo(); }
 });
 
+// --- COLOR TOOL HELPERS ---
+function rgbToHex(rgb) {
+  if (!rgb) return "#000000";
+  if (rgb[0] === "#") return rgb;
+  const m = rgb.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+  if (m) {
+    return (
+      "#" +
+      Number(m[1]).toString(16).padStart(2, "0") +
+      Number(m[2]).toString(16).padStart(2, "0") +
+      Number(m[3]).toString(16).padStart(2, "0")
+    );
+  }
+  return "#000000";
+}
+
 // --- COLOR TOOL ---
 colorTool?.addEventListener("click", () => {
   if (!selectedElement) return alert("Select an element first!");
+
+  // Close existing panel
   if (colorPanel) { colorPanel.remove(); colorPanel = null; return; }
 
-  colorPanel = document.createElement("input");
-  colorPanel.type = "color";
-  colorPanel.style.position = "fixed";
-  colorPanel.style.top = "20px";
-  colorPanel.style.left = "20px";
-  colorPanel.style.zIndex = "9999";
-  document.body.appendChild(colorPanel);
+  const el = selectedElement;
+  const tag = el.tagName;
+  const isText = el.isContentEditable || ["P","H1","H2","H3","H4","H5","H6","SPAN","A","LABEL"].includes(tag);
+  const isBg = ["DIV","SECTION","FOOTER"].includes(tag) || el.classList.contains("product-box");
+  const isImg = tag === "IMG";
+  const property = isText ? "color" : (isImg ? "borderColor" : "backgroundColor");
 
-  // Preview in real-time but DO NOT save
-  colorPanel.addEventListener("input", (e) => {
-    if (!selectedElement) return;
-    const tag = selectedElement.tagName;
+  const prevValue = window.getComputedStyle(el)[property];
+  let pendingColor = rgbToHex(prevValue);
+  let rafId = null;
 
-    if (selectedElement.isContentEditable || ["P","H1","H2","H3","H4","H5","H6","SPAN","A","LABEL"].includes(tag)) {
-      selectedElement.style.color = e.target.value;
-    } else if (["DIV","SECTION","FOOTER"].includes(tag) || selectedElement.classList.contains("product-box")) {
-      selectedElement.style.backgroundColor = e.target.value;
-    } else if (tag === "IMG") {
-      selectedElement.style.borderColor = e.target.value;
-    }
+  // Panel container
+  const panel = document.createElement("div");
+  panel.style.position = "fixed";
+  panel.style.top = "20px";
+  panel.style.left = "20px";
+  panel.style.zIndex = "9999";
+  panel.style.display = "flex";
+  panel.style.gap = "8px";
+  panel.style.alignItems = "center";
+  panel.style.padding = "8px";
+  panel.style.background = "#fff";
+  panel.style.border = "1px solid #ccc";
+  panel.style.borderRadius = "6px";
+
+  // Color input
+  const input = document.createElement("input");
+  input.type = "color";
+  input.value = pendingColor;
+
+  // OK button
+  const okBtn = document.createElement("button");
+  okBtn.textContent = "OK";
+
+  // Cancel button
+  const cancelBtn = document.createElement("button");
+  cancelBtn.textContent = "Cancel";
+
+  panel.appendChild(input);
+  panel.appendChild(okBtn);
+  panel.appendChild(cancelBtn);
+  document.body.appendChild(panel);
+  colorPanel = panel;
+
+  // Live preview with requestAnimationFrame
+  input.addEventListener("input", (e) => {
+    pendingColor = e.target.value;
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(() => {
+      el.style[property] = pendingColor;
+    });
   });
 
-  // Save only when user finishes choosing (mouse released / input closed)
-  colorPanel.addEventListener("change", () => {
-    saveHistory();
+  // OK -> commit & save
+  okBtn.addEventListener("click", () => {
+    el.style[property] = pendingColor;
+    saveHistory(true); // ✅ save once
+    panel.remove();
+    colorPanel = null;
+  });
+
+  // Cancel -> revert
+  cancelBtn.addEventListener("click", () => {
+    el.style[property] = prevValue;
+    panel.remove();
+    colorPanel = null;
   });
 });
 
@@ -156,9 +217,9 @@ previewFrame?.addEventListener("load", () => {
   }
 });
 
-// --- SAVE BUTTON ---
+// --- SAVE BUTTON (manual only) ---
 saveBtn?.addEventListener("click", () => {
-  saveHistory();
+  saveHistory(true); // ✅ force manual save
   alert("Changes saved!");
 });
 
