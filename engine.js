@@ -122,21 +122,20 @@ colorTool?.addEventListener("click", () => {
 // --- ELEMENT SELECTION & TEXT TOOL ---
 document.addEventListener("click", (e) => {
     const target = e.target;
-    if (activeTool === "select" && target.dataset.editable === "true") {
-        e.preventDefault();
-        e.stopPropagation();
+    // Prevent clicks on toolbar buttons
+    if ([textTool, selectTool, colorTool, undoBtn, redoBtn, saveBtn, imageTool, buttonTool].includes(target)) return;
+
+    const editorContainer = document.getElementById("editor-area") || document.body;
+
+    if (activeTool === "select") {
         if (selectedElement) selectedElement.style.outline = "none";
         selectedElement = target;
         selectedElement.style.outline = "2px solid blue";
         makeResizable(selectedElement);
     } else if (activeTool === "text") {
-        e.preventDefault();
-        e.stopPropagation();
-        const editorContainer = document.getElementById("editor-area") || document.body;
         const newEl = document.createElement("p");
         newEl.textContent = "Edit me";
         newEl.contentEditable = "true";
-        newEl.dataset.editable = "true";
         newEl.style.outline = "1px dashed gray";
         editorContainer.appendChild(newEl);
         saveHistory();
@@ -150,12 +149,12 @@ saveBtn?.addEventListener("click", () => {
 });
 
 // --- RESIZING ---
-function removeHandles() {
-    document.querySelectorAll(".resize-handle").forEach(h => h.remove());
-}
+function removeHandles() { document.querySelectorAll(".resize-handle").forEach(h => h.remove()); }
 
 function makeResizable(el) {
     removeHandles();
+    el.style.position = "relative";
+
     const handle = document.createElement("div");
     handle.className = "resize-handle";
     handle.style.width = "10px";
@@ -167,7 +166,6 @@ function makeResizable(el) {
     handle.style.cursor = "se-resize";
     handle.style.zIndex = "9999";
 
-    el.style.position = "relative";
     el.appendChild(handle);
 
     let isResizing = false;
