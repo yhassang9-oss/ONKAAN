@@ -228,6 +228,7 @@ function addResizeHandles(wrapper) {
     function startResize(ev) {
       ev.preventDefault();
       ev.stopPropagation();
+      if (resizeState.dragging) return; // Prevent multiple drags
       resizeState.dragging = true;
       resizeState.handle = pos;
       const wrapperRect = wrapper.getBoundingClientRect();
@@ -241,8 +242,8 @@ function addResizeHandles(wrapper) {
       resizeState.lockAspect = ev.shiftKey;
       handle.classList.add("active");
       dimensionDisplay.style.display = "block";
-      window.addEventListener("mousemove", onMouseMove, true);
-      window.addEventListener("mouseup", onMouseUp, true);
+      window.addEventListener("mousemove", onMouseMove, { capture: true, passive: false });
+      window.addEventListener("mouseup", onMouseUp, { capture: true });
       window.addEventListener("keydown", onKeyDown, true);
     }
 
@@ -331,8 +332,8 @@ function addResizeHandles(wrapper) {
     resizeState.handle = null;
     resizeState.showDimensions.style.display = "none";
     wrapper.querySelectorAll(".onkaan-resize-handle").forEach(h => h.classList.remove("active"));
-    window.removeEventListener("mousemove", onMouseMove, true);
-    window.removeEventListener("mouseup", onMouseUp, true);
+    window.removeEventListener("mousemove", onMouseMove, { capture: true });
+    window.removeEventListener("mouseup", onMouseUp, { capture: true });
     window.removeEventListener("keydown", onKeyDown, true);
     saveHistory();
   }
@@ -410,15 +411,39 @@ function attachIframeListeners(iframeDoc) {
     e.preventDefault();
     e.stopPropagation();
 
-    clearSelection();
-    selectedElement = e.target.closest(":not(.onkaan-resize-handle):not(.onkaan-dimension-display)");
-    if (!selectedElement) return;
+    // Skip if clicking on resize handle or dimension display
+    if (e.target.classList.contains("onkaan-resize-handle") || 
+        e.target.classList.contains("onkaan-dimension-display")) {
+      return;
+    }
 
-    try { selectedElement.style.outline = "2px solid #2196F3"; } catch (err) {}
+    // Find closest selectable element, excluding non-editable elements
+    let target = e.target;
+    while (target && target !== iframeDoc && (
+      target.classList.contains("onkaan-resize-handle") ||
+      target.classList.contains("onkaan-dimension-display") ||
+      target.tagName === "HTML" ||
+      target.tagName === "BODY"
+    )) {
+      target = target.parentElement;
+    }
+
+    // If no valid target, clear selection
+    if (!target || target === iframeDoc || target === iframeDoc.body) {
+      clearSelection();
+      return;
+    }
+
+    // Select the target element
+    clearSelection();
+    selectedElement = target;
+    try { selectedElement.style.outline = "2px solid #2196F3"; } catch (err) {
+      console.warn("Failed to set outline:", err);
+    }
     selectedWrapper = ensureWrapperAndHandleFor(selectedElement);
   };
 
-  iframeDoc.addEventListener("click", iframeDoc._onkaanHandler, true);
+  iframeDoc.addEventListener("click", iframeDoc._onkaanHandler, { capture: true, passive: false });
 }
 
 // --------------------- IFRAME LOAD ---------------------
