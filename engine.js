@@ -1,25 +1,26 @@
-// engine.js - Website editor (no resizing) with working tools based on your button IDs
-
+// engine.js - Editor with working color palette & image change
 const previewFrame = document.getElementById("previewFrame");
+const textTool = document.getElementById("textTool");
+const selectTool = document.getElementById("selecttool");
 const undoBtn = document.getElementById("undo");
 const redoBtn = document.getElementById("redo");
-const textToolBtn = document.getElementById("textTool");
-const colorToolBtn = document.getElementById("color");
-const imageToolBtn = document.getElementById("image");
+const colorTool = document.getElementById("color");
+const imageTool = document.getElementById("image");
 const buttonTool = document.getElementById("Buttons");
-const selectTool = document.getElementById("selecttool");
 const savePageBtn = document.getElementById("savePageBtn");
+
+const hiddenColorPicker = document.getElementById("hiddenColorPicker");
+const hiddenImagePicker = document.getElementById("hiddenImagePicker");
 
 let selectedElement = null;
 let history = [];
 let historyIndex = -1;
 
-// ------------------- HELPERS -------------------
+// --- HELPERS ---
 function getIframeDoc() {
   try {
     return previewFrame.contentDocument || previewFrame.contentWindow.document;
-  } catch (err) {
-    console.warn("Cannot access iframe document:", err);
+  } catch {
     return null;
   }
 }
@@ -29,7 +30,7 @@ function getEditorContainer() {
   return doc ? (doc.getElementById("editor-area") || doc.body) : null;
 }
 
-// ------------------- HISTORY -------------------
+// --- HISTORY ---
 function saveHistory() {
   const container = getEditorContainer();
   if (!container) return;
@@ -63,7 +64,7 @@ function restoreHistoryOnLoad() {
   return false;
 }
 
-// ------------------- SELECTION -------------------
+// --- SELECTION ---
 function clearSelection() {
   if (selectedElement) selectedElement.style.outline = "";
   selectedElement = null;
@@ -77,17 +78,15 @@ function attachIframeListeners() {
     e.preventDefault();
     e.stopPropagation();
     if (e.target === doc.body || e.target === doc.documentElement) return;
-
     clearSelection();
     selectedElement = e.target;
     selectedElement.style.outline = "2px solid #2196F3";
   }, true);
 }
 
-// ------------------- TOOLS -------------------
-
-// Text tool - prompts user for new text
-textToolBtn.addEventListener("click", () => {
+// --- TOOLS ---
+// Text
+textTool.addEventListener("click", () => {
   if (!selectedElement) return alert("Select an element first!");
   const newText = prompt("Enter new text:", selectedElement.textContent);
   if (newText !== null) {
@@ -96,28 +95,41 @@ textToolBtn.addEventListener("click", () => {
   }
 });
 
-// Color tool - prompts user for color
-colorToolBtn.addEventListener("click", () => {
+// Color
+colorTool.addEventListener("click", () => {
   if (!selectedElement) return alert("Select an element first!");
-  const newColor = prompt("Enter color (name or hex):", selectedElement.style.color || "#000000");
-  if (newColor) {
-    selectedElement.style.color = newColor;
+  hiddenColorPicker.value = rgbToHex(selectedElement.style.color || "#000000");
+  hiddenColorPicker.click();
+});
+
+hiddenColorPicker.addEventListener("input", () => {
+  if (selectedElement) {
+    selectedElement.style.color = hiddenColorPicker.value;
     saveHistory();
   }
 });
 
-// Image tool - prompts for image URL
-imageToolBtn.addEventListener("click", () => {
+// Change Image
+imageTool.addEventListener("click", () => {
   if (!selectedElement) return alert("Select an image first!");
   if (selectedElement.tagName !== "IMG") return alert("Selected element is not an image!");
-  const imgUrl = prompt("Enter image URL:", selectedElement.src);
-  if (imgUrl) {
-    selectedElement.src = imgUrl;
-    saveHistory();
-  }
+  hiddenImagePicker.click();
 });
 
-// Button tool - adds a new button
+hiddenImagePicker.addEventListener("change", (e) => {
+  if (!selectedElement) return;
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    selectedElement.src = event.target.result;
+    saveHistory();
+  };
+  reader.readAsDataURL(file);
+  hiddenImagePicker.value = "";
+});
+
+// Buttons
 buttonTool.addEventListener("click", () => {
   const doc = getIframeDoc();
   if (!doc) return;
@@ -130,7 +142,7 @@ buttonTool.addEventListener("click", () => {
   saveHistory();
 });
 
-// Undo/Redo
+// Undo / Redo
 undoBtn.addEventListener("click", () => {
   if (historyIndex > 0) loadHistory(historyIndex - 1);
 });
@@ -138,19 +150,18 @@ redoBtn.addEventListener("click", () => {
   if (historyIndex < history.length - 1) loadHistory(historyIndex + 1);
 });
 
-// Save page
+// Save
 savePageBtn.addEventListener("click", () => {
   const container = getEditorContainer();
   if (!container) return;
-  const content = container.innerHTML;
-  const blob = new Blob([content], { type: "text/html" });
+  const blob = new Blob([container.innerHTML], { type: "text/html" });
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
   link.download = "page.html";
   link.click();
 });
 
-// ------------------- INIT -------------------
+// --- INIT ---
 function initializeIframe() {
   const doc = getIframeDoc();
   if (!doc || doc.readyState !== "complete") { setTimeout(initializeIframe, 100); return; }
@@ -160,5 +171,14 @@ function initializeIframe() {
 }
 
 previewFrame.addEventListener("load", initializeIframe);
-
 if (getIframeDoc()?.readyState === "complete") initializeIframe();
+
+// --- UTILS ---
+function rgbToHex(rgb) {
+  const match = rgb.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
+  if (!match) return "#000000";
+  const r = parseInt(match[1]).toString(16).padStart(2, "0");
+  const g = parseInt(match[2]).toString(16).padStart(2, "0");
+  const b = parseInt(match[3]).toString(16).padStart(2, "0");
+  return `#${r}${g}${b}`;
+}
