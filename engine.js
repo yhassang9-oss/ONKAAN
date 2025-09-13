@@ -1,4 +1,4 @@
-// engine.js - Website editor with resizable elements, text editing, color picker, image upload, and button creation
+// engine.js - Website editor with advanced resizing, text editing, color picker, image upload, and button creation
 // Requires toolbar IDs: textTool, selecttool, undo, redo, color, image, Buttons, savePageBtn
 // and an iframe with id="previewFrame" whose document contains the editable template (#editor-area)
 
@@ -20,6 +20,22 @@ let history = [];
 let historyIndex = -1;
 let colorPanelParent = null;      // Color panel element in parent doc
 let currentTool = null;
+
+// Resize-specific state
+let resizeState = {
+  dragging: false,
+  handle: null, // Current handle being dragged (e.g., 'se', 'nw', 'n', etc.)
+  startX: 0,
+  startY: 0,
+  startW: 0,
+  startH: 0,
+  startLeft: 0,
+  startTop: 0,
+  lockAspect: false,
+  aspectRatio: 1,
+  gridSize: 10, // For snap-to-grid
+  showDimensions: null // DOM element for dimension display
+};
 
 // Helpers: Access iframe document and editor container
 function getIframeDoc() {
@@ -47,22 +63,45 @@ function injectEditorStyles() {
       box-sizing: border-box;
       min-width: 20px;
       min-height: 20px;
+      outline: 2px solid transparent;
+      transition: outline 0.2s;
+    }
+    .onkaan-resizable:hover {
+      outline-color: rgba(33, 150, 243, 0.3);
     }
     .onkaan-resize-handle {
       position: absolute;
       width: 12px;
       height: 12px;
-      right: -6px;
-      bottom: -6px;
-      cursor: se-resize;
       background: #0b79ff;
       border-radius: 2px;
       z-index: 99999;
       user-select: none;
       transition: background 0.2s;
     }
-    .onkaan-resize-handle:hover {
+    .onkaan-resize-handle:hover, .onkaan-resize-handle.active {
       background: #005bb5;
+    }
+    .onkaan-resize-handle.nw { top: -6px; left: -6px; cursor: nw-resize; }
+    .onkaan-resize-handle.ne { top: -6px; right: -6px; cursor: ne-resize; }
+    .onkaan-resize-handle.sw { bottom: -6px; left: -6px; cursor: sw-resize; }
+    .onkaan-resize-handle.se { bottom: -6px; right: -6px; cursor: se-resize; }
+    .onkaan-resize-handle.n { top: -6px; left: 50%; transform: translateX(-50%); cursor: n-resize; }
+    .onkaan-resize-handle.s { bottom: -6px; left: 50%; transform: translateX(-50%); cursor: s-resize; }
+    .onkaan-resize-handle.e { right: -6px; top: 50%; transform: translateY(-50%); cursor: e-resize; }
+    .onkaan-resize-handle.w { left: -6px; top: 50%; transform: translateY(-50%); cursor: w-resize; }
+    .onkaan-dimension-display {
+      position: absolute;
+      top: -30px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.8);
+      color: #fff;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      z-index: 100000;
+      pointer-events: none;
     }
   `;
   doc.head.appendChild(style);
@@ -135,6 +174,8 @@ function wrapElementForResize(el) {
   const rect = el.getBoundingClientRect();
   wrapper.style.width = `${el.offsetWidth}px`;
   wrapper.style.height = `${el.offsetHeight}px`;
+  wrapper.style.left = `${el.offsetLeft}px`;
+  wrapper.style.top = `${el.offsetTop}px`;
 
   el.parentNode.insertBefore(wrapper, el);
   wrapper.appendChild(el);
@@ -151,59 +192,199 @@ function wrapElementForResize(el) {
 
 function removeResizeHandlesFromWrapper(wrapper) {
   if (!wrapper) return;
-  wrapper.querySelectorAll(".onkaan-resize-handle").forEach(h => h.remove());
+  wrapper.querySelectorAll(".onkaan-resize-handle, .onkaan-dimension-display").forEach(h => h.remove());
 }
 
-function addResizeHandle(wrapper) {
+function addResizeHandles(wrapper) {
   if (!wrapper || !wrapper.ownerDocument) return;
   removeResizeHandlesFromWrapper(wrapper);
 
   const doc = wrapper.ownerDocument;
-  const handle = doc.createElement("div");
-  handle.className = "onkaan-resize-handle";
-  wrapper.appendChild(handle);
+  const handles = [
+    { class: "nw", cursor: "nw-resize" },
+    { class: "ne", cursor: "ne-resize" },
+    { class: "sw", cursor: "sw-resize" },
+    { class: "se", cursor: "se-resize" },
+    { class: "n", cursor: "n-resize" },
+    { class: "s", cursor: "s-resize" },
+    { class: "e", cursor: "e-resize" },
+    { class: "w", cursor: "w-resize" }
+  ];
 
-  let startX = 0, startY = 0, startW = 0, startH = 0;
-  let dragging = false;
+  // Create dimension display
+  const dimensionDisplay = doc.createElement("div");
+  dimensionDisplay.className = "onkaan-dimension-display";
+  wrapper.appendChild(dimensionDisplay);
+  resizeState.showDimensions = dimensionDisplay;
+
+  handles.forEach(({ class: pos, cursor }) => {
+    const handle = doc.createElement("div");
+    handle.className = `onkaan-resize-handle ${pos}`;
+    handle.setAttribute("aria-label", `Resize from ${pos} corner`);
+    handle.setAttribute("role", "button");
+    handle.tabIndex = 0; // Make focusable
+    wrapper.appendChild(handle);
+
+    function startResize(ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      resizeState.dragging = true;
+      resizeState.handle = pos;
+      const wrapperRect = wrapper.getBoundingClientRect();
+      resizeState.startX = ev.clientX;
+      resizeState.startY = ev.clientY;
+      resizeState.startW = wrapperRect.width;
+      resizeState.startH = wrapperRect.height;
+      resizeState.startLeft = wrapperRect.left - previewFrame.getBoundingClientRect().left;
+      resizeState.startTop = wrapperRect.top - previewFrame.getBoundingClientRect().top;
+      resizeState.aspectRatio = resizeState.startW / resizeState.startH;
+      resizeState.lockAspect = ev.shiftKey;
+      handle.classList.add("active");
+      dimensionDisplay.style.display = "block";
+      window.addEventListener("mousemove", onMouseMove, true);
+      window.addEventListener("mouseup", onMouseUp, true);
+      window.addEventListener("keydown", onKeyDown, true);
+    }
+
+    handle.addEventListener("mousedown", startResize);
+    handle.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter" || ev.key === " ") startResize(ev);
+    });
+  });
 
   function onMouseMove(ev) {
-    if (!dragging) return;
+    if (!resizeState.dragging) return;
     const iframeRect = previewFrame.getBoundingClientRect();
-    const dx = ev.clientX - startX - iframeRect.left;
-    const dy = ev.clientY - startY - iframeRect.top;
-    // Update size only while mouse is held
-    wrapper.style.width = `${Math.max(20, startW + dx)}px`;
-    wrapper.style.height = `${Math.max(20, startH + dy)}px`;
+    let dx = ev.clientX - resizeState.startX;
+    let dy = ev.clientY - resizeState.startY;
+
+    // Snap to grid if Alt key is held
+    if (ev.altKey) {
+      dx = Math.round(dx / resizeState.gridSize) * resizeState.gridSize;
+      dy = Math.round(dy / resizeState.gridSize) * resizeState.gridSize;
+    }
+
+    let newWidth = resizeState.startW;
+    let newHeight = resizeState.startH;
+    let newLeft = resizeState.startLeft;
+    let newTop = resizeState.startTop;
+
+    // Adjust based on handle position
+    switch (resizeState.handle) {
+      case "se":
+        newWidth = Math.max(20, resizeState.startW + dx);
+        newHeight = resizeState.lockAspect ? newWidth / resizeState.aspectRatio : Math.max(20, resizeState.startH + dy);
+        break;
+      case "sw":
+        newWidth = Math.max(20, resizeState.startW - dx);
+        newLeft = resizeState.startLeft + (resizeState.startW - newWidth);
+        newHeight = resizeState.lockAspect ? newWidth / resizeState.aspectRatio : Math.max(20, resizeState.startH + dy);
+        break;
+      case "ne":
+        newWidth = Math.max(20, resizeState.startW + dx);
+        newHeight = resizeState.lockAspect ? newWidth / resizeState.aspectRatio : Math.max(20, resizeState.startH - dy);
+        newTop = resizeState.startTop + (resizeState.startH - newHeight);
+        break;
+      case "nw":
+        newWidth = Math.max(20, resizeState.startW - dx);
+        newHeight = resizeState.lockAspect ? newWidth / resizeState.aspectRatio : Math.max(20, resizeState.startH - dy);
+        newLeft = resizeState.startLeft + (resizeState.startW - newWidth);
+        newTop = resizeState.startTop + (resizeState.startH - newHeight);
+        break;
+      case "e":
+        newWidth = Math.max(20, resizeState.startW + dx);
+        newHeight = resizeState.lockAspect ? newWidth / resizeState.aspectRatio : newHeight;
+        break;
+      case "w":
+        newWidth = Math.max(20, resizeState.startW - dx);
+        newLeft = resizeState.startLeft + (resizeState.startW - newWidth);
+        newHeight = resizeState.lockAspect ? newWidth / resizeState.aspectRatio : newHeight;
+        break;
+      case "n":
+        newHeight = Math.max(20, resizeState.startH - dy);
+        newTop = resizeState.startTop + (resizeState.startH - newHeight);
+        newWidth = resizeState.lockAspect ? newHeight * resizeState.aspectRatio : newWidth;
+        newLeft = resizeState.startLeft + (resizeState.startW - newWidth) / 2;
+        break;
+      case "s":
+        newHeight = Math.max(20, resizeState.startH + dy);
+        newWidth = resizeState.lockAspect ? newHeight * resizeState.aspectRatio : newWidth;
+        newLeft = resizeState.startLeft + (resizeState.startW - newWidth) / 2;
+        break;
+    }
+
+    // Apply styles
+    wrapper.style.width = `${newWidth}px`;
+    wrapper.style.height = `${newHeight}px`;
+    wrapper.style.left = `${newLeft}px`;
+    wrapper.style.top = `${newTop}px`;
+    wrapper.style.position = "absolute"; // Ensure position updates work
+
+    // Update dimension display
+    resizeState.showDimensions.textContent = `${Math.round(newWidth)} × ${Math.round(newHeight)} px`;
     ev.preventDefault();
   }
 
   function onMouseUp() {
-    if (!dragging) return;
-    dragging = false;
+    if (!resizeState.dragging) return;
+    resizeState.dragging = false;
+    resizeState.handle = null;
+    resizeState.showDimensions.style.display = "none";
+    wrapper.querySelectorAll(".onkaan-resize-handle").forEach(h => h.classList.remove("active"));
     window.removeEventListener("mousemove", onMouseMove, true);
     window.removeEventListener("mouseup", onMouseUp, true);
-    // Save final size to history only on mouse release
+    window.removeEventListener("keydown", onKeyDown, true);
     saveHistory();
   }
 
-  handle.addEventListener("mousedown", (ev) => {
-    ev.preventDefault();
-    ev.stopPropagation();
-    const wrapperRect = wrapper.getBoundingClientRect();
-    startX = ev.clientX;
-    startY = ev.clientY;
-    startW = wrapperRect.width;
-    startH = wrapperRect.height;
-    dragging = true;
-    window.addEventListener("mousemove", onMouseMove, true);
-    window.addEventListener("mouseup", onMouseUp, true);
-  }, false);
+  function onKeyDown(ev) {
+    if (!resizeState.dragging) return;
+    let deltaW = 0, deltaH = 0;
+    if (ev.key === "ArrowRight") deltaW = 1;
+    if (ev.key === "ArrowLeft") deltaW = -1;
+    if (ev.key === "ArrowDown") deltaH = 1;
+    if (ev.key === "ArrowUp") deltaH = -1;
+
+    if (deltaW || deltaH) {
+      ev.preventDefault();
+      let newWidth = Math.max(20, parseFloat(wrapper.style.width) + deltaW);
+      let newHeight = Math.max(20, parseFloat(wrapper.style.height) + deltaH);
+      let newLeft = parseFloat(wrapper.style.left);
+      let newTop = parseFloat(wrapper.style.top);
+
+      if (resizeState.lockAspect) {
+        if (deltaW) newHeight = newWidth / resizeState.aspectRatio;
+        if (deltaH) newWidth = newHeight * resizeState.aspectRatio;
+      }
+
+      if (["nw", "w", "sw"].includes(resizeState.handle)) {
+        newLeft -= deltaW;
+      }
+      if (["nw", "n", "ne"].includes(resizeState.handle)) {
+        newTop -= deltaH;
+      }
+
+      wrapper.style.width = `${newWidth}px`;
+      wrapper.style.height = `${newHeight}px`;
+      wrapper.style.left = `${newLeft}px`;
+      wrapper.style.top = `${newTop}px`;
+      resizeState.showDimensions.textContent = `${Math.round(newWidth)} × ${Math.round(newHeight)} px`;
+    }
+  }
+
+  // Update lockAspect on Shift key
+  window.addEventListener("keydown", (ev) => {
+    if (ev.key === "Shift") resizeState.lockAspect = true;
+  });
+  window.addEventListener("keyup", (ev) => {
+    if (ev.key === "Shift") resizeState.lockAspect = false;
+  });
 }
 
 function ensureWrapperAndHandleFor(el) {
   if (!el) return null;
   const wrapper = wrapElementForResize(el);
-  if (wrapper) addResizeHandle(wrapper);
+  if (wrapper) addResizeHandles(wrapper);
   return wrapper;
 }
 
@@ -230,7 +411,7 @@ function attachIframeListeners(iframeDoc) {
     e.stopPropagation();
 
     clearSelection();
-    selectedElement = e.target.closest(":not(.onkaan-resize-handle)");
+    selectedElement = e.target.closest(":not(.onkaan-resize-handle):not(.onkaan-dimension-display)");
     if (!selectedElement) return;
 
     try { selectedElement.style.outline = "2px solid #2196F3"; } catch (err) {}
