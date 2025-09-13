@@ -412,7 +412,11 @@ if (resetTool) {
 }
 
 // --- Load saved template from localStorage if exists ---
+// --- Load saved template from localStorage if exists ---
 window.addEventListener("DOMContentLoaded", () => {
+  // Clear old template first
+  localStorage.removeItem("userTemplate");
+
   const savedHTML = localStorage.getItem("userTemplate");
   if (savedHTML) {
     const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
@@ -422,6 +426,7 @@ window.addEventListener("DOMContentLoaded", () => {
     saveHistory(); // save loaded state to history
   }
 });
+
 
 // --- Save changes to localStorage whenever history is saved ---
 function saveHistory() {
@@ -465,6 +470,7 @@ if (resetTool) {
     }
   });
 }
+
 
 
 
