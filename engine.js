@@ -368,17 +368,48 @@ document.addEventListener("DOMContentLoaded", () => {
     .catch(err => alert("Error sending files: " + err));
   });
 });
+// ---- Reset tool: restore iframe to original template ----
+// store original iframe src so reset always knows what to load
+if (previewFrame && !previewFrame.dataset.originalSrc) {
+  previewFrame.dataset.originalSrc = previewFrame.src || "templates/index.html";
+}
+
 const resetTool = document.getElementById("resetTool");
+if (resetTool) {
+  resetTool.addEventListener("click", () => {
+    if (!confirm("Are you sure you want to reset the template to default? This will clear undo history.")) return;
 
-resetTool.addEventListener("click", () => {
-  if (confirm("Are you sure you want to reset everything to default?")) {
-    // Reload iframe back to original template
-    previewFrame.src = "templates/index.html";
+    // deactivate tools and clear UI panels/selections (uses your existing function)
+    try { deactivateAllTools(); } catch (err) { /* no-op if not present */ }
 
-    // Clear history stack since it's a fresh load
+    // clear undo/redo stacks
     historyStack = [];
     historyIndex = -1;
-  }
+
+    // reload iframe. If src is same, force a reload (cache-bust fallback)
+    const orig = previewFrame.dataset.originalSrc;
+    try {
+      if (previewFrame.src === orig) {
+        // try a proper reload first
+        if (previewFrame.contentWindow && previewFrame.contentWindow.location) {
+          previewFrame.contentWindow.location.reload();
+        } else {
+          // fallback: append small cache-buster
+          previewFrame.src = orig + "?_reset=" + Date.now();
+        }
+      } else {
+        previewFrame.src = orig;
+      }
+    } catch (err) {
+      // final fallback: set src with cache-buster
+      previewFrame.src = orig + "?_reset=" + Date.now();
+    }
+  });
+} else {
+  console.warn("Reset button (#resetTool) not found — add <button id=\"resetTool\">Reset</button> to your sidebar if you want the reset feature.");
+}
+
 });
+
 
 
