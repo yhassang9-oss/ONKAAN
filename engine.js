@@ -171,6 +171,7 @@ function addResizeHandle(wrapper) {
     const iframeRect = previewFrame.getBoundingClientRect();
     const dx = ev.clientX - startX - iframeRect.left;
     const dy = ev.clientY - startY - iframeRect.top;
+    // Update size only while mouse is held
     wrapper.style.width = `${Math.max(20, startW + dx)}px`;
     wrapper.style.height = `${Math.max(20, startH + dy)}px`;
     ev.preventDefault();
@@ -181,6 +182,7 @@ function addResizeHandle(wrapper) {
     dragging = false;
     window.removeEventListener("mousemove", onMouseMove, true);
     window.removeEventListener("mouseup", onMouseUp, true);
+    // Save final size to history only on mouse release
     saveHistory();
   }
 
