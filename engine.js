@@ -1,5 +1,5 @@
 // =========================
-// ONKAAN ENGINE.JS (FULL)
+// ONKAAN ENGINE.JS (FULL, MATCHED TO YOUR HTML)
 // =========================
 
 // Grab toolbar buttons
@@ -9,8 +9,9 @@ const redoBtn = document.getElementById("redo");
 const textTool = document.getElementById("textTool");
 const colorTool = document.getElementById("color");
 const imageTool = document.getElementById("image");
-const buttonTool = document.getElementById("buttonTool"); // make sure ID matches in HTML
+const buttonTool = document.getElementById("Buttons"); // ✅ fixed: matches your HTML
 const selectTool = document.getElementById("selecttool");
+const saveBtn = document.getElementById("savePageBtn");
 
 let selectedElement = null;
 let history = [];
@@ -19,18 +20,15 @@ let historyIndex = -1;
 // =========================
 // History System
 // =========================
-
-// Save current state of iframe into history
 function saveHistory() {
   const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
   if (!iframeDoc) return;
 
-  history = history.slice(0, historyIndex + 1); // cut off forward states
+  history = history.slice(0, historyIndex + 1);
   history.push(iframeDoc.body.innerHTML);
   historyIndex++;
 }
 
-// Load a specific state from history
 function loadHistory(index) {
   const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
   if (!iframeDoc || index < 0 || index >= history.length) return;
@@ -44,20 +42,17 @@ function loadHistory(index) {
 // =========================
 // Selection System
 // =========================
-
-// Add click listeners inside iframe so we can select elements
 function attachIframeListeners(iframeDoc) {
   iframeDoc.body.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
 
-    // clear old selection
     if (selectedElement) {
       selectedElement.style.outline = "";
     }
 
     selectedElement = e.target;
-    selectedElement.style.outline = "2px solid red"; // highlight
+    selectedElement.style.outline = "2px solid red";
   });
 }
 
@@ -68,7 +63,6 @@ previewFrame.addEventListener("load", () => {
   const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
   if (!iframeDoc) return;
 
-  // initialize history
   saveHistory();
   attachIframeListeners(iframeDoc);
 });
@@ -140,7 +134,6 @@ buttonTool.addEventListener("click", () => {
   iframeDoc.body.appendChild(newBtn);
   saveHistory();
 
-  // Make new button selectable too
   newBtn.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -150,10 +143,16 @@ buttonTool.addEventListener("click", () => {
   });
 });
 
-// Select Tool (deselect)
+// Select Tool
 selectTool.addEventListener("click", () => {
   if (selectedElement) {
     selectedElement.style.outline = "";
     selectedElement = null;
   }
+});
+
+// Save Page (just alerts for now)
+saveBtn.addEventListener("click", () => {
+  saveHistory();
+  alert("Page saved!");
 });
