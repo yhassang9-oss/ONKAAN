@@ -370,6 +370,8 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 // ---- Reset tool: restore iframe to original template ----
 // store original iframe src so reset always knows what to load
+// ---- Reset tool: restore iframe to original template ----
+// store original iframe src so reset always knows what to load
 if (previewFrame && !previewFrame.dataset.originalSrc) {
   previewFrame.dataset.originalSrc = previewFrame.src || "templates/index.html";
 }
@@ -379,8 +381,8 @@ if (resetTool) {
   resetTool.addEventListener("click", () => {
     if (!confirm("Are you sure you want to reset the template to default? This will clear undo history.")) return;
 
-    // deactivate tools and clear UI panels/selections (uses your existing function)
-    try { deactivateAllTools(); } catch (err) { /* no-op if not present */ }
+    // deactivate tools and clear UI panels/selections
+    try { deactivateAllTools(); } catch (err) { /* ignore if not present */ }
 
     // clear undo/redo stacks
     historyStack = [];
@@ -408,6 +410,8 @@ if (resetTool) {
 } else {
   console.warn("Reset button (#resetTool) not found — add <button id=\"resetTool\">Reset</button> to your sidebar if you want the reset feature.");
 }
+
+
 
 
 
