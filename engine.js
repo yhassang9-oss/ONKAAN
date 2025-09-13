@@ -368,3 +368,17 @@ document.addEventListener("DOMContentLoaded", () => {
     .catch(err => alert("Error sending files: " + err));
   });
 });
+const resetTool = document.getElementById("resetTool");
+
+resetTool.addEventListener("click", () => {
+  if (confirm("Are you sure you want to reset everything to default?")) {
+    // Reload iframe back to original template
+    previewFrame.src = "templates/index.html";
+
+    // Clear history stack since it's a fresh load
+    historyStack = [];
+    historyIndex = -1;
+  }
+});
+
+
