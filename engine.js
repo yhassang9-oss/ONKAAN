@@ -6,7 +6,6 @@ const colorTool = document.getElementById("color");
 const imageTool = document.getElementById("image");
 const buttonTool = document.getElementById("Buttons");
 const selectTool = document.getElementById("selecttool");
-const savePageBtn = document.getElementById("savePageBtn");
 
 let selectedElement = null;
 let history = [];
@@ -39,9 +38,9 @@ function loadHistory(index) {
   attachIframeListeners(iframeDoc);
 }
 
-// ✅ Add resize handles
+// ✅ Resizing
 function enableResizing(el, iframeDoc) {
-  disableResizing(); // remove old resizer
+  disableResizing();
   resizer = iframeDoc.createElement("div");
   resizer.style.position = "absolute";
   resizer.style.width = "10px";
@@ -50,8 +49,6 @@ function enableResizing(el, iframeDoc) {
   resizer.style.bottom = "0";
   resizer.style.right = "0";
   resizer.style.cursor = "se-resize";
-  resizer.style.zIndex = "9999";
-  resizer.style.userSelect = "none";
 
   el.style.position = "relative";
   el.appendChild(resizer);
@@ -143,7 +140,7 @@ textTool.addEventListener("click", () => {
   }
 });
 
-// ✅ Color Tool (with OK button)
+// ✅ Color Tool (palette with OK button)
 colorTool.addEventListener("click", () => {
   if (!selectedElement) return alert("Select an element first!");
   const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
@@ -182,7 +179,7 @@ colorTool.addEventListener("click", () => {
   iframeDoc.body.appendChild(colorPanel);
 });
 
-// ✅ Image Tool (File Explorer)
+// ✅ Image Tool (File Explorer instead of URL)
 imageTool.addEventListener("click", () => {
   if (!selectedElement || selectedElement.tagName !== "IMG") {
     return alert("Select an image element first!");
@@ -230,20 +227,4 @@ selectTool.addEventListener("click", () => {
     disableResizing();
     selectedElement = null;
   }
-});
-
-// ✅ Save Page
-savePageBtn.addEventListener("click", () => {
-  const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
-  const html = iframeDoc.documentElement.outerHTML;
-
-  const blob = new Blob([html], { type: "text/html" });
-  const url = URL.createObjectURL(blob);
-
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "page.html";
-  a.click();
-
-  URL.revokeObjectURL(url);
 });
