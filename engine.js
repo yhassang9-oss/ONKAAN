@@ -409,7 +409,6 @@ if (resetTool) {
   console.warn("Reset button (#resetTool) not found — add <button id=\"resetTool\">Reset</button> to your sidebar if you want the reset feature.");
 }
 
-});
 
 
 
