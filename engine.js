@@ -411,6 +411,61 @@ if (resetTool) {
   console.warn("Reset button (#resetTool) not found — add <button id=\"resetTool\">Reset</button> to your sidebar if you want the reset feature.");
 }
 
+// --- Load saved template from localStorage if exists ---
+window.addEventListener("DOMContentLoaded", () => {
+  const savedHTML = localStorage.getItem("userTemplate");
+  if (savedHTML) {
+    const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
+    iframeDoc.open();
+    iframeDoc.write(savedHTML);
+    iframeDoc.close();
+    saveHistory(); // save loaded state to history
+  }
+});
+
+// --- Save changes to localStorage whenever history is saved ---
+function saveHistory() {
+  const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
+  historyStack = historyStack.slice(0, historyIndex + 1);
+  historyStack.push(iframeDoc.body.innerHTML);
+  historyIndex++;
+
+  // Save current state to localStorage
+  localStorage.setItem("userTemplate", iframeDoc.documentElement.outerHTML);
+}
+
+// --- Reset tool update ---
+if (resetTool) {
+  resetTool.addEventListener("click", () => {
+    if (!confirm("Are you sure you want to reset the template to default? This will clear undo history.")) return;
+
+    try { deactivateAllTools(); } catch (err) {}
+
+    // clear undo/redo stacks
+    historyStack = [];
+    historyIndex = -1;
+
+    // clear localStorage
+    localStorage.removeItem("userTemplate");
+
+    // reload iframe
+    const orig = previewFrame.dataset.originalSrc;
+    try {
+      if (previewFrame.src === orig) {
+        if (previewFrame.contentWindow && previewFrame.contentWindow.location) {
+          previewFrame.contentWindow.location.reload();
+        } else {
+          previewFrame.src = orig + "?_reset=" + Date.now();
+        }
+      } else {
+        previewFrame.src = orig;
+      }
+    } catch (err) {
+      previewFrame.src = orig + "?_reset=" + Date.now();
+    }
+  });
+}
+
 
 
 
