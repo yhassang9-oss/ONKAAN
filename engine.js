@@ -18,7 +18,7 @@ let selectedElement = null;       // DOM element inside iframe
 let selectedWrapper = null;       // Wrapper element inside iframe
 let history = [];
 let historyIndex = -1;
-let colorPanelParent = null;      // Color panel element in parent doc
+let colorPanelParent = null;      // Color panel element in iframe doc
 let currentTool = null;           // Currently selected tool (null or button element)
 
 // Helpers: Access iframe document and editor container
@@ -27,6 +27,7 @@ function getIframeDoc() {
     return previewFrame.contentDocument || previewFrame.contentWindow.document;
   } catch (err) {
     console.warn("Cannot access iframe document (cross-origin?):", err);
+    alert("Error: Iframe content is not accessible. Ensure it’s hosted on the same domain.");
     return null;
   }
 }
@@ -62,6 +63,13 @@ function saveHistory() {
   const doc = getIframeDoc();
   if (!doc) return;
   try {
+    // Ensure wrapper styles are inline
+    if (selectedWrapper) {
+      selectedWrapper.style.width = selectedWrapper.style.width || `${selectedWrapper.offsetWidth}px`;
+      selectedWrapper.style.height = selectedWrapper.style.height || `${selectedWrapper.offsetHeight}px`;
+      selectedWrapper.style.left = selectedWrapper.style.left || `${selectedWrapper.offsetLeft}px`;
+      selectedWrapper.style.top = selectedWrapper.style.top || `${selectedWrapper.offsetTop}px`;
+    }
     const content = getEditorContainer().innerHTML;
     history = history.slice(0, historyIndex + 1);
     history.push(content);
@@ -91,8 +99,8 @@ function loadHistory(index) {
 function restoreSavedHistoryOnLoad() {
   try {
     const saved = JSON.parse(localStorage.getItem("onkaan-history") || "[]");
-    const savedIndex = parseInt(localStorage.getItem("onkaan-historyIndex") || "-1", 10);
-    if (Array.isArray(saved) && saved.length > 0 && savedIndex >= 0) {
+    let savedIndex = parseInt(localStorage.getItem("onkaan-historyIndex") || "-1", 10);
+    if (Array.isArray(saved) && saved.length > 0 && savedIndex >= 0 && savedIndex < saved.length) {
       history = saved;
       historyIndex = savedIndex;
       const doc = getIframeDoc();
@@ -121,11 +129,12 @@ function wrapElementForResize(el) {
   wrapper.style.position = "relative";
   wrapper.style.boxSizing = "border-box";
 
+  const parentRect = el.parentElement.getBoundingClientRect();
   const rect = el.getBoundingClientRect();
-  wrapper.style.width = `${el.offsetWidth}px`;
-  wrapper.style.height = `${el.offsetHeight}px`;
-  wrapper.style.left = `${el.offsetLeft}px`;
-  wrapper.style.top = `${el.offsetTop}px`;
+  wrapper.style.width = `${rect.width}px`;
+  wrapper.style.height = `${rect.height}px`;
+  wrapper.style.left = `${rect.left - parentRect.left}px`;
+  wrapper.style.top = `${rect.top - parentRect.top}px`;
 
   el.parentNode.insertBefore(wrapper, el);
   wrapper.appendChild(el);
@@ -143,9 +152,6 @@ function wrapElementForResize(el) {
 function clearSelection() {
   if (selectedElement) {
     try { selectedElement.style.outline = ""; } catch (err) {}
-  }
-  if (selectedWrapper) {
-    selectedWrapper.remove();
   }
   selectedElement = null;
   selectedWrapper = null;
@@ -233,6 +239,9 @@ if (undoBtn) {
     if (historyIndex > 0) {
       loadHistory(historyIndex - 1);
     }
+    // Deselect after action
+    undoBtn.style.backgroundColor = undoBtn.dataset.originalBg || "";
+    currentTool = null;
   });
 }
 
@@ -242,6 +251,9 @@ if (redoBtn) {
     if (historyIndex < history.length - 1) {
       loadHistory(historyIndex + 1);
     }
+    // Deselect after action
+    redoBtn.style.backgroundColor = redoBtn.dataset.originalBg || "";
+    currentTool = null;
   });
 }
 
@@ -259,6 +271,9 @@ if (textTool) {
         selectedElement.contentEditable = "false";
         selectedElement.removeEventListener("blur", onBlur);
         saveHistory();
+        // Deselect tool after action
+        textTool.style.backgroundColor = textTool.dataset.originalBg || "";
+        currentTool = null;
       };
       selectedElement.addEventListener("blur", onBlur);
     } catch (err) {
@@ -266,6 +281,9 @@ if (textTool) {
       if (txt !== null) {
         selectedElement.textContent = txt;
         saveHistory();
+        // Deselect tool after action
+        textTool.style.backgroundColor = textTool.dataset.originalBg || "";
+        currentTool = null;
       }
     }
   });
@@ -278,13 +296,18 @@ if (colorTool) {
       alert("Select an element first!");
       return;
     }
+    const doc = getIframeDoc();
+    if (!doc) return;
     if (colorPanelParent) {
       colorPanelParent.remove();
       colorPanelParent = null;
+      // Deselect tool when closing panel
+      colorTool.style.backgroundColor = colorTool.dataset.originalBg || "";
+      currentTool = null;
       return;
     }
 
-    const panel = document.createElement("div");
+    const panel = doc.createElement("div");
     panel.style.position = "fixed";
     panel.style.top = "16px";
     panel.style.right = "16px";
@@ -297,7 +320,7 @@ if (colorTool) {
     panel.style.alignItems = "center";
     panel.style.gap = "8px";
 
-    const input = document.createElement("input");
+    const input = doc.createElement("input");
     input.type = "color";
     try {
       const cs = getComputedStyle(selectedElement);
@@ -314,7 +337,7 @@ if (colorTool) {
       }
     });
 
-    const okBtn = document.createElement("button");
+    const okBtn = doc.createElement("button");
     okBtn.textContent = "OK";
     okBtn.style.padding = "6px 10px";
     okBtn.style.cursor = "pointer";
@@ -322,9 +345,12 @@ if (colorTool) {
       saveHistory();
       panel.remove();
       colorPanelParent = null;
+      // Deselect tool after action
+      colorTool.style.backgroundColor = colorTool.dataset.originalBg || "";
+      currentTool = null;
     });
 
-    const cancelBtn = document.createElement("button");
+    const cancelBtn = doc.createElement("button");
     cancelBtn.textContent = "Cancel";
     cancelBtn.style.padding = "6px 10px";
     cancelBtn.style.cursor = "pointer";
@@ -332,12 +358,15 @@ if (colorTool) {
       if (historyIndex >= 0) loadHistory(historyIndex);
       panel.remove();
       colorPanelParent = null;
+      // Deselect tool after action
+      colorTool.style.backgroundColor = colorTool.dataset.originalBg || "";
+      currentTool = null;
     });
 
     panel.appendChild(input);
     panel.appendChild(okBtn);
     panel.appendChild(cancelBtn);
-    document.body.appendChild(panel);
+    doc.body.appendChild(panel);
     colorPanelParent = panel;
     input.focus();
     input.click();
@@ -368,8 +397,12 @@ if (imageTool) {
         try {
           selectedElement.src = e.target.result;
           saveHistory();
+          // Deselect tool after action
+          imageTool.style.backgroundColor = imageTool.dataset.originalBg || "";
+          currentTool = null;
         } catch (err) {
-          alert("Could not set image (cross-origin or other error).");
+          alert("Failed to set image. Ensure the iframe allows data URLs or use a hosted image URL.");
+          console.error("Image upload error:", err);
         }
         fileInput.remove();
       };
@@ -401,14 +434,21 @@ if (buttonTool) {
     selectedElement.style.outline = "2px solid #2196F3";
     selectedWrapper = wrapElementForResize(selectedElement);
     saveHistory();
+    // Deselect tool after action
+    buttonTool.style.backgroundColor = buttonTool.dataset.originalBg || "";
+    currentTool = null;
   });
 }
 
 if (selectTool) {
   selectTool.addEventListener("click", () => {
-    toggleToolSelection(selectTool);
+    if (currentTool === selectTool) {
+      selectTool.style.backgroundColor = selectTool.dataset.originalBg || "";
+      currentTool = null;
+    } else {
+      toggleToolSelection(selectTool);
+    }
     clearSelection();
-    currentTool = selectTool; // Keep select tool active
   });
 }
 
@@ -425,6 +465,9 @@ if (savePageBtn) {
     a.download = "page.html";
     a.click();
     URL.revokeObjectURL(url);
+    // Deselect tool after action
+    savePageBtn.style.backgroundColor = savePageBtn.dataset.originalBg || "";
+    currentTool = null;
   });
 }
 
