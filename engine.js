@@ -37,6 +37,9 @@ function saveHistory() {
   historyStack = historyStack.slice(0, historyIndex + 1);
   historyStack.push(iframeDoc.body.innerHTML);
   historyIndex++;
+
+  // Save current state to localStorage
+  localStorage.setItem("userTemplate", iframeDoc.documentElement.outerHTML);
 }
 
 function undo() {
@@ -139,7 +142,12 @@ previewFrame.addEventListener("load", () => {
           selectedElement.addEventListener("blur", () => saveHistory(), { once: true });
         }
       }
+
+      return; // stop here only if select tool active
     }
+
+    // --- If no tool is active, allow normal clicks (template functions work) ---
+    // Nothing is blocked here, click will propagate normally
   });
 });
 
@@ -326,52 +334,7 @@ document.querySelector(".save-btn").addEventListener("click", () => {
   .catch(err => console.error(err));
 });
 
-// --- Alternative Publish (DOMContentLoaded) ---
-document.addEventListener("DOMContentLoaded", () => {
-  const previewFrame = document.getElementById("previewFrame");
-  const publishBtn = document.querySelector(".save-btn");
-
-  if (!publishBtn) {
-    console.error("Publish button not found!");
-    return;
-  }
-
-  publishBtn.addEventListener("click", () => {
-    const iframeDoc = previewFrame.contentDocument;
-    const htmlContent = "<!DOCTYPE html>\n" + iframeDoc.documentElement.outerHTML;
-
-    let cssContent = "";
-    iframeDoc.querySelectorAll("style").forEach(styleTag => {
-      cssContent += styleTag.innerHTML + "\n";
-    });
-
-    let jsContent = "";
-    iframeDoc.querySelectorAll("script").forEach(scriptTag => {
-      jsContent += scriptTag.innerHTML + "\n";
-    });
-
-    fetch("http://localhost:3000/publish", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        projectName: "MyProject",
-        html: htmlContent,
-        css: cssContent,
-        js: jsContent
-      })
-    })
-    .then(res => {
-      if (!res.ok) throw new Error(`Server responded with ${res.status}`);
-      return res.json();
-    })
-    .then(data => alert(data.message))
-    .catch(err => alert("Error sending files: " + err));
-  });
-});
-// ---- Reset tool: restore iframe to original template ----
-// store original iframe src so reset always knows what to load
-// ---- Reset tool: restore iframe to original template ----
-// store original iframe src so reset always knows what to load
+// --- Reset tool ---
 if (previewFrame && !previewFrame.dataset.originalSrc) {
   previewFrame.dataset.originalSrc = previewFrame.src || "templates/index.html";
 }
@@ -380,100 +343,36 @@ const resetTool = document.getElementById("resetTool");
 if (resetTool) {
   resetTool.addEventListener("click", () => {
     if (!confirm("Are you sure you want to reset the template to default? This will clear undo history.")) return;
-
-    // deactivate tools and clear UI panels/selections
-    try { deactivateAllTools(); } catch (err) { /* ignore if not present */ }
-
-    // clear undo/redo stacks
+    try { deactivateAllTools(); } catch (err) {}
     historyStack = [];
     historyIndex = -1;
-
-    // reload iframe. If src is same, force a reload (cache-bust fallback)
+    localStorage.removeItem("userTemplate");
     const orig = previewFrame.dataset.originalSrc;
     try {
       if (previewFrame.src === orig) {
-        // try a proper reload first
         if (previewFrame.contentWindow && previewFrame.contentWindow.location) {
           previewFrame.contentWindow.location.reload();
         } else {
-          // fallback: append small cache-buster
           previewFrame.src = orig + "?_reset=" + Date.now();
         }
       } else {
         previewFrame.src = orig;
       }
     } catch (err) {
-      // final fallback: set src with cache-buster
       previewFrame.src = orig + "?_reset=" + Date.now();
     }
   });
-} else {
-  console.warn("Reset button (#resetTool) not found — add <button id=\"resetTool\">Reset</button> to your sidebar if you want the reset feature.");
 }
 
-// --- Load saved template from localStorage if exists ---
-// --- Load saved template from localStorage if exists ---
+// --- Load saved template ---
 window.addEventListener("DOMContentLoaded", () => {
-  // Clear old template first
   localStorage.removeItem("userTemplate");
-
   const savedHTML = localStorage.getItem("userTemplate");
   if (savedHTML) {
     const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
     iframeDoc.open();
     iframeDoc.write(savedHTML);
     iframeDoc.close();
-    saveHistory(); // save loaded state to history
+    saveHistory();
   }
 });
-
-
-// --- Save changes to localStorage whenever history is saved ---
-function saveHistory() {
-  const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
-  historyStack = historyStack.slice(0, historyIndex + 1);
-  historyStack.push(iframeDoc.body.innerHTML);
-  historyIndex++;
-
-  // Save current state to localStorage
-  localStorage.setItem("userTemplate", iframeDoc.documentElement.outerHTML);
-}
-
-// --- Reset tool update ---
-if (resetTool) {
-  resetTool.addEventListener("click", () => {
-    if (!confirm("Are you sure you want to reset the template to default? This will clear undo history.")) return;
-
-    try { deactivateAllTools(); } catch (err) {}
-
-    // clear undo/redo stacks
-    historyStack = [];
-    historyIndex = -1;
-
-    // clear localStorage
-    localStorage.removeItem("userTemplate");
-
-    // reload iframe
-    const orig = previewFrame.dataset.originalSrc;
-    try {
-      if (previewFrame.src === orig) {
-        if (previewFrame.contentWindow && previewFrame.contentWindow.location) {
-          previewFrame.contentWindow.location.reload();
-        } else {
-          previewFrame.src = orig + "?_reset=" + Date.now();
-        }
-      } else {
-        previewFrame.src = orig;
-      }
-    } catch (err) {
-      previewFrame.src = orig + "?_reset=" + Date.now();
-    }
-  });
-}
-
-
-
-
-
-
-
