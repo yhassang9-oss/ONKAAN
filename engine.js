@@ -1,260 +1,159 @@
-// --- TOOL REFERENCES ---
-const textTool = document.getElementById("textTool");
-const selectTool = document.getElementById("selecttool");
+// =========================
+// ONKAAN ENGINE.JS (FULL)
+// =========================
+
+// Grab toolbar buttons
+const previewFrame = document.getElementById("previewFrame");
 const undoBtn = document.getElementById("undo");
 const redoBtn = document.getElementById("redo");
+const textTool = document.getElementById("textTool");
 const colorTool = document.getElementById("color");
 const imageTool = document.getElementById("image");
-const buttonTool = document.getElementById("Buttons");
-const saveBtn = document.getElementById("savePageBtn");
+const buttonTool = document.getElementById("buttonTool"); // make sure ID matches in HTML
+const selectTool = document.getElementById("selecttool");
 
-const previewFrame = document.getElementById("previewFrame");
-
-// --- STATE ---
-let activeTool = null;
 let selectedElement = null;
-let colorPanel = null;
-let historyStack = [];
+let history = [];
 let historyIndex = -1;
 
-// --- HELPERS ---
-function getEditorDocument() {
-    return previewFrame.contentDocument || previewFrame.contentWindow.document;
-}
+// =========================
+// History System
+// =========================
 
-function getEditorContainer() {
-    return getEditorDocument().getElementById("editor-area");
-}
-
-// --- TOOL TOGGLE ---
-function deactivateAllTools() {
-    activeTool = null;
-    textTool?.classList.remove("active-tool");
-    selectTool?.classList.remove("active-tool");
-
-    if (selectedElement) selectedElement.style.outline = "none";
-    selectedElement = null;
-
-    if (colorPanel) { colorPanel.remove(); colorPanel = null; }
-}
-
-textTool?.addEventListener("click", () => {
-    if (activeTool === "text") deactivateAllTools();
-    else { deactivateAllTools(); activeTool = "text"; textTool.classList.add("active-tool"); }
-});
-
-selectTool?.addEventListener("click", () => {
-    if (activeTool === "select") deactivateAllTools();
-    else { deactivateAllTools(); activeTool = "select"; selectTool.classList.add("active-tool"); }
-});
-
-// --- HISTORY ---
+// Save current state of iframe into history
 function saveHistory() {
-    const container = getEditorContainer();
-    if (!container) return;
-    historyStack = historyStack.slice(0, historyIndex + 1);
-    historyStack.push(container.innerHTML);
-    historyIndex++;
-    localStorage.setItem("onkaan-history", JSON.stringify(historyStack));
-    localStorage.setItem("onkaan-historyIndex", historyIndex);
+  const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
+  if (!iframeDoc) return;
+
+  history = history.slice(0, historyIndex + 1); // cut off forward states
+  history.push(iframeDoc.body.innerHTML);
+  historyIndex++;
 }
 
-function undo() {
-    if (historyIndex <= 0) return;
-    historyIndex--;
-    const container = getEditorContainer();
-    container.innerHTML = historyStack[historyIndex];
-    initEditorEvents();
+// Load a specific state from history
+function loadHistory(index) {
+  const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
+  if (!iframeDoc || index < 0 || index >= history.length) return;
+
+  iframeDoc.body.innerHTML = history[index];
+  historyIndex = index;
+  selectedElement = null;
+  attachIframeListeners(iframeDoc);
 }
 
-function redo() {
-    if (historyIndex >= historyStack.length - 1) return;
-    historyIndex++;
-    const container = getEditorContainer();
-    container.innerHTML = historyStack[historyIndex];
-    initEditorEvents();
-}
+// =========================
+// Selection System
+// =========================
 
-undoBtn?.addEventListener("click", undo);
-redoBtn?.addEventListener("click", redo);
-document.addEventListener("keydown", e => {
-    if (e.ctrlKey && e.key === "z") { e.preventDefault(); undo(); }
-    if (e.ctrlKey && e.key === "y") { e.preventDefault(); redo(); }
-});
+// Add click listeners inside iframe so we can select elements
+function attachIframeListeners(iframeDoc) {
+  iframeDoc.body.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
 
-// --- COLOR TOOL ---
-colorTool?.addEventListener("click", () => {
-    if (!selectedElement) return alert("Select an element first!");
-    if (colorPanel) { colorPanel.remove(); colorPanel = null; return; }
-
-    colorPanel = document.createElement("div");
-    colorPanel.style.position = "fixed";
-    colorPanel.style.top = "20px";
-    colorPanel.style.left = "20px";
-    colorPanel.style.padding = "10px";
-    colorPanel.style.background = "#fff";
-    colorPanel.style.border = "1px solid #ccc";
-    colorPanel.style.zIndex = "9999";
-
-    const input = document.createElement("input");
-    input.type = "color";
-    input.value = "#000000";
-
-    const okBtn = document.createElement("button");
-    okBtn.textContent = "OK";
-    okBtn.style.marginLeft = "10px";
-
-    colorPanel.appendChild(input);
-    colorPanel.appendChild(okBtn);
-    document.body.appendChild(colorPanel);
-
-    input.addEventListener("input", e => {
-        const color = e.target.value;
-        const tag = selectedElement.tagName;
-        if (selectedElement.isContentEditable || ["P","H1","H2","H3","H4","H5","H6","SPAN","A","LABEL"].includes(tag)) {
-            selectedElement.style.color = color;
-        } else if (["DIV","SECTION","FOOTER","HEADER"].includes(tag) || selectedElement.classList.contains("product-box")) {
-            selectedElement.style.backgroundColor = color;
-        } else if (tag === "IMG") {
-            selectedElement.style.borderColor = color;
-        }
-    });
-
-    okBtn.addEventListener("click", () => {
-        saveHistory();
-        colorPanel.remove();
-        colorPanel = null;
-    });
-});
-
-// --- IMAGE TOOL (File Explorer) ---
-imageTool?.addEventListener("click", () => {
-    if (!selectedElement || selectedElement.tagName !== "IMG") {
-        alert("Select an image element first!");
-        return;
+    // clear old selection
+    if (selectedElement) {
+      selectedElement.style.outline = "";
     }
 
-    const fileInput = document.createElement("input");
-    fileInput.type = "file";
-    fileInput.accept = "image/*";
-    fileInput.style.display = "none";
-    document.body.appendChild(fileInput);
+    selectedElement = e.target;
+    selectedElement.style.outline = "2px solid red"; // highlight
+  });
+}
 
-    fileInput.click();
+// =========================
+// On iframe load
+// =========================
+previewFrame.addEventListener("load", () => {
+  const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
+  if (!iframeDoc) return;
 
-    fileInput.addEventListener("change", e => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = function(ev) {
-            saveHistory();
-            selectedElement.src = ev.target.result;
-        };
-        reader.readAsDataURL(file);
-    });
-
-    document.body.removeChild(fileInput);
+  // initialize history
+  saveHistory();
+  attachIframeListeners(iframeDoc);
 });
 
-// --- ELEMENT SELECTION & TEXT TOOL ---
-function initEditorEvents() {
-    const editorDoc = getEditorDocument();
-    editorDoc.addEventListener("click", e => {
-        const target = e.target;
-        if ([textTool, selectTool, colorTool, undoBtn, redoBtn, saveBtn, imageTool, buttonTool].includes(target)) return;
+// =========================
+// Undo / Redo
+// =========================
+undoBtn.addEventListener("click", () => {
+  if (historyIndex > 0) {
+    loadHistory(historyIndex - 1);
+  }
+});
 
-        if (activeTool === "select") {
-            if (selectedElement) selectedElement.style.outline = "none";
-            selectedElement = target;
-            selectedElement.style.outline = "2px solid blue";
-            makeResizable(selectedElement);
-        } else if (activeTool === "text") {
-            const newEl = editorDoc.createElement("p");
-            newEl.textContent = "Edit me";
-            newEl.contentEditable = "true";
-            newEl.dataset.editable = "true";
-            newEl.style.outline = "1px dashed gray";
-            getEditorContainer().appendChild(newEl);
-            saveHistory();
-        }
-    });
-}
+redoBtn.addEventListener("click", () => {
+  if (historyIndex < history.length - 1) {
+    loadHistory(historyIndex + 1);
+  }
+});
 
-// --- RESIZING (Wrapper) ---
-function removeHandles() {
-    const editorDoc = getEditorDocument();
-    editorDoc.querySelectorAll(".resize-handle").forEach(h => h.remove());
-}
+// =========================
+// Tools
+// =========================
 
-function makeResizable(el) {
-    removeHandles();
-
-    let wrapper = el.closest(".resizable-wrapper");
-    if (!wrapper) {
-        wrapper = getEditorDocument().createElement("div");
-        wrapper.className = "resizable-wrapper";
-        wrapper.style.display = "inline-block";
-        wrapper.style.position = "relative";
-        el.parentNode.insertBefore(wrapper, el);
-        wrapper.appendChild(el);
-    }
-
-    const handle = getEditorDocument().createElement("div");
-    handle.className = "resize-handle";
-    handle.style.width = "12px";
-    handle.style.height = "12px";
-    handle.style.background = "red";
-    handle.style.position = "absolute";
-    handle.style.right = "0";
-    handle.style.bottom = "0";
-    handle.style.cursor = "se-resize";
-    wrapper.appendChild(handle);
-
-    let isResizing = false;
-    handle.addEventListener("mousedown", e => {
-        e.preventDefault(); e.stopPropagation();
-        isResizing = true;
-        const startX = e.clientX;
-        const startY = e.clientY;
-        const startWidth = wrapper.offsetWidth;
-        const startHeight = wrapper.offsetHeight;
-
-        function resizeMove(ev) {
-            if (!isResizing) return;
-            wrapper.style.width = startWidth + (ev.clientX - startX) + "px";
-            wrapper.style.height = startHeight + (ev.clientY - startY) + "px";
-        }
-
-        function stopResize() {
-            isResizing = false;
-            document.removeEventListener("mousemove", resizeMove);
-            document.removeEventListener("mouseup", stopResize);
-            saveHistory();
-        }
-
-        document.addEventListener("mousemove", resizeMove);
-        document.addEventListener("mouseup", stopResize);
-    });
-}
-
-// --- SAVE PAGE ---
-saveBtn?.addEventListener("click", () => {
+// Text Tool
+textTool.addEventListener("click", () => {
+  if (!selectedElement) return alert("Select an element first!");
+  const newText = prompt("Enter new text:", selectedElement.innerText);
+  if (newText !== null) {
+    selectedElement.innerText = newText;
     saveHistory();
-    alert("Changes saved!");
+  }
 });
 
-// --- RESTORE HISTORY & INITIALIZE ---
-window.addEventListener("load", () => {
-    const savedHistory = JSON.parse(localStorage.getItem("onkaan-history") || "[]");
-    const savedIndex = parseInt(localStorage.getItem("onkaan-historyIndex") || "-1");
+// Color Tool
+colorTool.addEventListener("click", () => {
+  if (!selectedElement) return alert("Select an element first!");
+  const newColor = prompt("Enter color (e.g. red, #ff0000):", "#000000");
+  if (newColor) {
+    selectedElement.style.color = newColor;
+    saveHistory();
+  }
+});
 
-    previewFrame.addEventListener("load", () => {
-        if (savedHistory.length > 0 && savedIndex >= 0) {
-            historyStack = savedHistory;
-            historyIndex = savedIndex;
-            getEditorContainer().innerHTML = historyStack[historyIndex];
-        }
-        initEditorEvents();
-    });
+// Image Tool
+imageTool.addEventListener("click", () => {
+  if (!selectedElement || selectedElement.tagName !== "IMG") {
+    return alert("Select an image first!");
+  }
+  const newSrc = prompt("Enter new image URL:", selectedElement.src);
+  if (newSrc) {
+    selectedElement.src = newSrc;
+    saveHistory();
+  }
+});
+
+// Button Tool
+buttonTool.addEventListener("click", () => {
+  const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
+  const newBtn = iframeDoc.createElement("button");
+  newBtn.innerText = "New Button";
+  newBtn.style.padding = "8px 12px";
+  newBtn.style.margin = "5px";
+  newBtn.style.background = "#007bff";
+  newBtn.style.color = "#fff";
+  newBtn.style.border = "none";
+  newBtn.style.borderRadius = "4px";
+  newBtn.style.cursor = "pointer";
+
+  iframeDoc.body.appendChild(newBtn);
+  saveHistory();
+
+  // Make new button selectable too
+  newBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (selectedElement) selectedElement.style.outline = "";
+    selectedElement = newBtn;
+    selectedElement.style.outline = "2px solid red";
+  });
+});
+
+// Select Tool (deselect)
+selectTool.addEventListener("click", () => {
+  if (selectedElement) {
+    selectedElement.style.outline = "";
+    selectedElement = null;
+  }
 });
