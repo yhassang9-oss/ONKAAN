@@ -1,212 +1,269 @@
-// engine.js
+// engine.js - Website editor with advanced resizing, text editing, color picker, image upload, and button creation
 
-// Initialize canvas editor logic
-const previewFrame = document.getElementById("preview-frame");
-const editorArea = document.getElementById("editor-area");
-const textTool = document.getElementById("text-tool");
-const imageTool = document.getElementById("image-tool");
-const buttonTool = document.getElementById("button-tool");
-const colorTool = document.getElementById("color-tool");
-const savePageBtn = document.getElementById("save-page");
-const undoBtn = document.getElementById("undo-btn");
-const redoBtn = document.getElementById("redo-btn");
+// -------------------- DOM ELEMENTS --------------------
+const previewFrame = document.getElementById("previewFrame");
+const undoBtn = document.getElementById("undo");
+const redoBtn = document.getElementById("redo");
+const textTool = document.getElementById("textTool");
+const colorTool = document.getElementById("color");
+const imageTool = document.getElementById("image");
+const buttonTool = document.getElementById("Buttons"); // fixed ID
+const selectTool = document.getElementById("selecttool");
+const savePageBtn = document.getElementById("savePageBtn");
 
+// -------------------- STATE --------------------
 let selectedElement = null;
-let historyStack = [];
-let redoStack = [];
+let selectedWrapper = null;
+let history = [];
+let historyIndex = -1;
+let currentTool = null;
+let colorPanelParent = null;
 
-// Helper: Save current state for undo/redo
-function saveState() {
-  redoStack = []; // clear redo on new action
-  historyStack.push(editorArea.innerHTML);
-  if (historyStack.length > 50) historyStack.shift();
-}
+// -------------------- RESIZE STATE --------------------
+let resizeState = {
+  dragging: false,
+  handle: null,
+  startX: 0,
+  startY: 0,
+  startW: 0,
+  startH: 0,
+  startLeft: 0,
+  startTop: 0,
+  lockAspect: false,
+  aspectRatio: 1,
+  showDimensions: null
+};
 
-// Undo
-undoBtn.addEventListener("click", () => {
-  if (historyStack.length > 0) {
-    redoStack.push(editorArea.innerHTML);
-    editorArea.innerHTML = historyStack.pop();
-  }
-});
-
-// Redo
-redoBtn.addEventListener("click", () => {
-  if (redoStack.length > 0) {
-    historyStack.push(editorArea.innerHTML);
-    editorArea.innerHTML = redoStack.pop();
-  }
-});
-
-// Get iframe document
+// -------------------- HELPERS --------------------
 function getIframeDoc() {
-  return previewFrame.contentDocument || previewFrame.contentWindow.document;
+  try {
+    return previewFrame.contentDocument || previewFrame.contentWindow.document;
+  } catch {
+    return null;
+  }
 }
 
-// Wrap an element with resizable/draggable box
-function wrapElement(el) {
-  const wrapper = document.createElement("div");
-  wrapper.classList.add("element-wrapper");
-  wrapper.style.position = "absolute";
-  wrapper.style.left = `${el.offsetLeft}px`;
-  wrapper.style.top = `${el.offsetTop}px`;
-  wrapper.style.width = `${el.offsetWidth}px`;
-  wrapper.style.height = `${el.offsetHeight}px`;
-  wrapper.style.border = "1px dashed #00f";
-  wrapper.style.boxSizing = "border-box";
-  wrapper.style.cursor = "move";
+function getEditorContainer() {
+  const doc = getIframeDoc();
+  return doc ? (doc.getElementById("editor-area") || doc.body) : null;
+}
 
-  el.style.pointerEvents = "none";
+function wrapElementForResize(el) {
+  if (!el || !el.ownerDocument) return null;
+  const doc = el.ownerDocument;
+  if (el.closest(".onkaan-resizable")) return el.closest(".onkaan-resizable");
+
+  const wrapper = doc.createElement("div");
+  wrapper.className = "onkaan-resizable";
+  wrapper.style.position = "absolute";
+  wrapper.style.width = el.offsetWidth + "px";
+  wrapper.style.height = el.offsetHeight + "px";
+  wrapper.style.left = el.offsetLeft + "px";
+  wrapper.style.top = el.offsetTop + "px";
+
+  el.parentNode.insertBefore(wrapper, el);
   wrapper.appendChild(el);
 
-  // Add resize handle
-  const handle = document.createElement("div");
-  handle.classList.add("resize-handle");
-  handle.style.width = "10px";
-  handle.style.height = "10px";
-  handle.style.background = "blue";
-  handle.style.position = "absolute";
-  handle.style.right = "0";
-  handle.style.bottom = "0";
-  handle.style.cursor = "se-resize";
-  wrapper.appendChild(handle);
-
-  // Drag logic
-  wrapper.addEventListener("mousedown", (e) => {
-    if (e.target === handle) return; // skip if resizing
-    selectedElement = wrapper;
-    const offsetX = e.clientX - wrapper.offsetLeft;
-    const offsetY = e.clientY - wrapper.offsetTop;
-
-    function moveAt(ev) {
-      wrapper.style.left = ev.clientX - offsetX + "px";
-      wrapper.style.top = ev.clientY - offsetY + "px";
-    }
-
-    function stopDrag() {
-      document.removeEventListener("mousemove", moveAt);
-      document.removeEventListener("mouseup", stopDrag);
-      saveState();
-    }
-
-    document.addEventListener("mousemove", moveAt);
-    document.addEventListener("mouseup", stopDrag);
-  });
-
-  // ✅ Improved Resize logic (fixed)
-  handle.addEventListener("mousedown", (e) => {
-    e.stopPropagation();
-    selectedElement = wrapper;
-    const startX = e.clientX;
-    const startY = e.clientY;
-    const startWidth = wrapper.offsetWidth;
-    const startHeight = wrapper.offsetHeight;
-
-    function resizeAt(ev) {
-      const newWidth = startWidth + (ev.clientX - startX);
-      const newHeight = startHeight + (ev.clientY - startY);
-
-      wrapper.style.width = Math.max(30, newWidth) + "px";
-      wrapper.style.height = Math.max(30, newHeight) + "px";
-
-      // Resize inner element
-      const child = wrapper.querySelector("*:first-child");
-      if (child) {
-        child.style.width = "100%";
-        child.style.height = "100%";
-      }
-    }
-
-    function stopResize() {
-      document.removeEventListener("mousemove", resizeAt);
-      document.removeEventListener("mouseup", stopResize);
-      saveState();
-    }
-
-    document.addEventListener("mousemove", resizeAt);
-    document.addEventListener("mouseup", stopResize);
-  });
+  if (el.tagName === "IMG") {
+    el.style.width = "100%";
+    el.style.height = "100%";
+    el.style.display = "block";
+    el.style.objectFit = "contain";
+  }
 
   return wrapper;
 }
 
-// Add new element
-function addElement(type) {
-  let el;
-  if (type === "text") {
-    el = document.createElement("div");
-    el.textContent = "Editable Text";
-    el.style.fontSize = "16px";
-    el.style.padding = "5px";
-  } else if (type === "image") {
-    el = document.createElement("img");
-    el.src = "https://via.placeholder.com/150";
-    el.style.width = "150px";
-    el.style.height = "auto";
-  } else if (type === "button") {
-    el = document.createElement("button");
-    el.textContent = "Click Me";
-    el.style.padding = "10px 20px";
-  }
+// -------------------- NEW MOUSE-FRIENDLY RESIZE --------------------
+function addResizeHandles(wrapper) {
+  if (!wrapper || !wrapper.ownerDocument) return;
+  const doc = wrapper.ownerDocument;
 
-  if (el) {
-    const wrapped = wrapElement(el);
-    wrapped.style.left = "50px";
-    wrapped.style.top = "50px";
-    editorArea.appendChild(wrapped);
-    saveState();
-  }
-}
+  // Remove old handles
+  wrapper.querySelectorAll(".onkaan-resize-handle, .onkaan-dimension-display").forEach(h => h.remove());
 
-// Tool buttons
-textTool.addEventListener("click", () => addElement("text"));
-imageTool.addEventListener("click", () => addElement("image"));
-buttonTool.addEventListener("click", () => addElement("button"));
+  // Create dimension display
+  const dimensionDisplay = doc.createElement("div");
+  dimensionDisplay.className = "onkaan-dimension-display";
+  wrapper.appendChild(dimensionDisplay);
+  resizeState.showDimensions = dimensionDisplay;
 
-// Color tool
-colorTool.addEventListener("click", () => {
-  if (selectedElement) {
-    const child = selectedElement.querySelector("*:first-child");
-    if (child) {
-      const currentColor = rgbToHex(
-        window.getComputedStyle(child).color || "#000000"
-      );
-      const input = document.createElement("input");
-      input.type = "color";
-      input.value = currentColor || "#000000";
-      input.addEventListener("input", () => {
-        child.style.color = input.value;
-        saveState();
-      });
-      input.click();
+  // Only bottom-right handle for smooth resizing
+  const handle = doc.createElement("div");
+  handle.className = "onkaan-resize-handle se";
+  wrapper.appendChild(handle);
+
+  handle.addEventListener("mousedown", (e) => {
+    e.stopPropagation();
+    resizeState.dragging = true;
+    resizeState.handle = "se";
+    resizeState.startX = e.clientX;
+    resizeState.startY = e.clientY;
+    resizeState.startW = wrapper.offsetWidth;
+    resizeState.startH = wrapper.offsetHeight;
+    dimensionDisplay.style.display = "block";
+
+    function onMouseMove(ev) {
+      if (!resizeState.dragging) return;
+      let newW = resizeState.startW + (ev.clientX - resizeState.startX);
+      let newH = resizeState.startH + (ev.clientY - resizeState.startY);
+
+      newW = Math.max(20, newW);
+      newH = Math.max(20, newH);
+
+      wrapper.style.width = newW + "px";
+      wrapper.style.height = newH + "px";
+      dimensionDisplay.textContent = `${Math.round(newW)} × ${Math.round(newH)} px`;
+      ev.preventDefault();
     }
-  }
-});
 
-// Save as HTML
-savePageBtn.addEventListener("click", () => {
-  const iframeDoc = getIframeDoc();
-  const doctype = new XMLSerializer().serializeToString(iframeDoc.doctype);
-  const html = iframeDoc.documentElement.outerHTML;
-  const blob = new Blob([doctype + html], { type: "text/html" });
-  const url = URL.createObjectURL(blob);
+    function onMouseUp() {
+      resizeState.dragging = false;
+      resizeState.handle = null;
+      dimensionDisplay.style.display = "none";
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+      saveHistory();
+    }
 
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "custom-page.html";
-  a.click();
-  URL.revokeObjectURL(url);
-});
-
-// Helper: Convert rgb color to hex
-function rgbToHex(rgb) {
-  if (!rgb) return null;
-  const result = rgb.match(/\d+/g);
-  if (!result || result.length < 3) return null;
-
-  let r = parseInt(result[0], 10).toString(16).padStart(2, "0");
-  let g = parseInt(result[1], 10).toString(16).padStart(2, "0");
-  let b = parseInt(result[2], 10).toString(16).padStart(2, "0");
-
-  return `#${r}${g}${b}`;
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  });
 }
+
+// -------------------- SELECTION --------------------
+function ensureWrapperAndHandleFor(el) {
+  if (!el) return null;
+  const wrapper = wrapElementForResize(el);
+  if (wrapper) addResizeHandles(wrapper);
+  return wrapper;
+}
+
+function clearSelection() {
+  if (selectedElement) selectedElement.style.outline = "";
+  if (selectedWrapper) wrapperQueryRemoveHandles(selectedWrapper);
+  selectedElement = null;
+  selectedWrapper = null;
+}
+
+function wrapperQueryRemoveHandles(wrapper) {
+  if (!wrapper) return;
+  wrapper.querySelectorAll(".onkaan-resize-handle, .onkaan-dimension-display").forEach(h => h.remove());
+}
+
+// -------------------- IFRAME LISTENERS --------------------
+function attachIframeListeners(doc) {
+  if (!doc) return;
+  if (doc._onkaanHandler) doc.removeEventListener("click", doc._onkaanHandler, true);
+
+  doc._onkaanHandler = function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (e.target.classList.contains("onkaan-resize-handle") ||
+        e.target.classList.contains("onkaan-dimension-display")) return;
+
+    let target = e.target;
+    while (target && target !== doc.body &&
+           ["HTML", "BODY"].includes(target.tagName)) {
+      target = target.parentElement;
+    }
+
+    if (!target) {
+      clearSelection();
+      return;
+    }
+
+    clearSelection();
+    selectedElement = target;
+    try { selectedElement.style.outline = "2px solid #2196F3"; } catch {}
+    selectedWrapper = ensureWrapperAndHandleFor(selectedElement);
+  };
+
+  doc.addEventListener("click", doc._onkaanHandler, { capture: true, passive: false });
+}
+
+// -------------------- HISTORY --------------------
+function saveHistory() {
+  const doc = getIframeDoc();
+  if (!doc) return;
+  const content = getEditorContainer().innerHTML;
+  history = history.slice(0, historyIndex + 1);
+  history.push(content);
+  historyIndex++;
+  localStorage.setItem("onkaan-history", JSON.stringify(history));
+  localStorage.setItem("onkaan-historyIndex", historyIndex);
+}
+
+// -------------------- INITIALIZATION --------------------
+function initializeIframe() {
+  const doc = getIframeDoc();
+  if (!doc || doc.readyState !== "complete") {
+    setTimeout(initializeIframe, 100);
+    return;
+  }
+  attachIframeListeners(doc);
+}
+
+previewFrame.addEventListener("load", initializeIframe);
+
+// -------------------- TOOL EVENT LISTENERS --------------------
+if (textTool) textTool.addEventListener("click", () => {
+  if (!selectedElement) return alert("Select an element first!");
+  selectedElement.contentEditable = "true";
+  selectedElement.focus();
+  selectedElement.addEventListener("blur", () => {
+    selectedElement.contentEditable = "false";
+    saveHistory();
+  }, { once: true });
+});
+
+if (selectTool) selectTool.addEventListener("click", clearSelection);
+
+if (undoBtn) undoBtn.addEventListener("click", () => {
+  if (historyIndex > 0) historyIndex--; getEditorContainer().innerHTML = history[historyIndex];
+});
+
+if (redoBtn) redoBtn.addEventListener("click", () => {
+  if (historyIndex < history.length - 1) historyIndex++; getEditorContainer().innerHTML = history[historyIndex];
+});
+
+if (colorTool) colorTool.addEventListener("click", () => {
+  if (!selectedElement) return alert("Select an element first!");
+  const input = document.createElement("input");
+  input.type = "color";
+  input.value = "#000000";
+  input.addEventListener("input", (e) => selectedElement.style.color = e.target.value);
+  input.click();
+});
+
+if (imageTool) imageTool.addEventListener("click", () => {
+  if (!selectedElement || selectedElement.tagName !== "IMG") return alert("Select an image element!");
+  const fileInput = document.createElement("input");
+  fileInput.type = "file"; fileInput.accept = "image/*"; fileInput.click();
+  fileInput.addEventListener("change", (e) => {
+    const file = e.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => selectedElement.src = ev.target.result;
+    reader.readAsDataURL(file);
+  });
+});
+
+if (buttonTool) buttonTool.addEventListener("click", () => {
+  const doc = getIframeDoc(); if (!doc) return;
+  const btn = doc.createElement("button");
+  btn.textContent = "Buy Now"; btn.style.padding = "8px 12px";
+  getEditorContainer().appendChild(btn);
+  clearSelection();
+  selectedElement = btn;
+  selectedWrapper = ensureWrapperAndHandleFor(btn);
+  saveHistory();
+});
+
+if (savePageBtn) savePageBtn.addEventListener("click", () => {
+  const doc = getIframeDoc(); if (!doc) return;
+  const html = "<!DOCTYPE html>\n<html>\n" + doc.documentElement.innerHTML + "\n</html>";
+  const blob = new Blob([html], { type: "text/html" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+  a.download = "page.html"; a.click(); URL.revokeObjectURL(a.href);
+});
