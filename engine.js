@@ -1,11 +1,11 @@
-// engine.js - Website editor (no resizing) with text, color, image, buttons, undo/redo
+// engine.js - Website editor (no resizing) with working tools based on your button IDs
 
 const previewFrame = document.getElementById("previewFrame");
 const undoBtn = document.getElementById("undo");
 const redoBtn = document.getElementById("redo");
-const textTool = document.getElementById("textTool");
-const colorTool = document.getElementById("color");
-const imageTool = document.getElementById("image");
+const textToolBtn = document.getElementById("textTool");
+const colorToolBtn = document.getElementById("color");
+const imageToolBtn = document.getElementById("image");
 const buttonTool = document.getElementById("Buttons");
 const selectTool = document.getElementById("selecttool");
 const savePageBtn = document.getElementById("savePageBtn");
@@ -86,36 +86,38 @@ function attachIframeListeners() {
 
 // ------------------- TOOLS -------------------
 
-// Text tool
-textTool.addEventListener("input", () => {
-  if (!selectedElement) return;
-  selectedElement.textContent = textTool.value;
-  saveHistory();
-});
-
-// Color tool
-colorTool.addEventListener("input", () => {
-  if (!selectedElement) return;
-  selectedElement.style.color = colorTool.value;
-  saveHistory();
-});
-
-// Image tool
-imageTool.addEventListener("change", (e) => {
-  if (!selectedElement) return;
-  if (selectedElement.tagName !== "IMG") return;
-
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function(evt) {
-    selectedElement.src = evt.target.result;
+// Text tool - prompts user for new text
+textToolBtn.addEventListener("click", () => {
+  if (!selectedElement) return alert("Select an element first!");
+  const newText = prompt("Enter new text:", selectedElement.textContent);
+  if (newText !== null) {
+    selectedElement.textContent = newText;
     saveHistory();
-  };
-  reader.readAsDataURL(file);
+  }
 });
 
-// Button tool
+// Color tool - prompts user for color
+colorToolBtn.addEventListener("click", () => {
+  if (!selectedElement) return alert("Select an element first!");
+  const newColor = prompt("Enter color (name or hex):", selectedElement.style.color || "#000000");
+  if (newColor) {
+    selectedElement.style.color = newColor;
+    saveHistory();
+  }
+});
+
+// Image tool - prompts for image URL
+imageToolBtn.addEventListener("click", () => {
+  if (!selectedElement) return alert("Select an image first!");
+  if (selectedElement.tagName !== "IMG") return alert("Selected element is not an image!");
+  const imgUrl = prompt("Enter image URL:", selectedElement.src);
+  if (imgUrl) {
+    selectedElement.src = imgUrl;
+    saveHistory();
+  }
+});
+
+// Button tool - adds a new button
 buttonTool.addEventListener("click", () => {
   const doc = getIframeDoc();
   if (!doc) return;
