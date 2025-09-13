@@ -1,5 +1,5 @@
 // =========================
-// ONKAAN ENGINE.JS (FULL, MATCHED TO YOUR HTML)
+// ONKAAN ENGINE.JS (FULL, ENHANCED)
 // =========================
 
 // Grab toolbar buttons
@@ -9,7 +9,7 @@ const redoBtn = document.getElementById("redo");
 const textTool = document.getElementById("textTool");
 const colorTool = document.getElementById("color");
 const imageTool = document.getElementById("image");
-const buttonTool = document.getElementById("Buttons"); // ✅ fixed: matches your HTML
+const buttonTool = document.getElementById("Buttons"); // matches your HTML
 const selectTool = document.getElementById("selecttool");
 const saveBtn = document.getElementById("savePageBtn");
 
@@ -49,11 +49,72 @@ function attachIframeListeners(iframeDoc) {
 
     if (selectedElement) {
       selectedElement.style.outline = "";
+      removeResizeHandle(selectedElement);
     }
 
     selectedElement = e.target;
     selectedElement.style.outline = "2px solid red";
+
+    makeResizable(selectedElement, iframeDoc);
   });
+}
+
+// =========================
+// Resizing System
+// =========================
+function makeResizable(element, iframeDoc) {
+  removeResizeHandle(element);
+
+  if (element.tagName === "BODY") return;
+
+  const handle = iframeDoc.createElement("div");
+  handle.className = "resize-handle";
+  handle.style.width = "10px";
+  handle.style.height = "10px";
+  handle.style.background = "blue";
+  handle.style.position = "absolute";
+  handle.style.right = "0";
+  handle.style.bottom = "0";
+  handle.style.cursor = "se-resize";
+  handle.style.zIndex = "9999";
+
+  element.style.position = "relative";
+  element.appendChild(handle);
+
+  let isResizing = false;
+
+  handle.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    isResizing = true;
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startWidth = element.offsetWidth;
+    const startHeight = element.offsetHeight;
+
+    function resizeMove(ev) {
+      if (!isResizing) return;
+      element.style.width = startWidth + (ev.clientX - startX) + "px";
+      element.style.height = startHeight + (ev.clientY - startY) + "px";
+    }
+
+    function stopResize() {
+      isResizing = false;
+      document.removeEventListener("mousemove", resizeMove);
+      document.removeEventListener("mouseup", stopResize);
+      saveHistory();
+    }
+
+    document.addEventListener("mousemove", resizeMove);
+    document.addEventListener("mouseup", stopResize);
+  });
+}
+
+function removeResizeHandle(element) {
+  if (!element) return;
+  const handles = element.querySelectorAll(".resize-handle");
+  handles.forEach((h) => h.remove());
 }
 
 // =========================
@@ -71,15 +132,11 @@ previewFrame.addEventListener("load", () => {
 // Undo / Redo
 // =========================
 undoBtn.addEventListener("click", () => {
-  if (historyIndex > 0) {
-    loadHistory(historyIndex - 1);
-  }
+  if (historyIndex > 0) loadHistory(historyIndex - 1);
 });
 
 redoBtn.addEventListener("click", () => {
-  if (historyIndex < history.length - 1) {
-    loadHistory(historyIndex + 1);
-  }
+  if (historyIndex < history.length - 1) loadHistory(historyIndex + 1);
 });
 
 // =========================
@@ -96,26 +153,55 @@ textTool.addEventListener("click", () => {
   }
 });
 
-// Color Tool
+// Color Tool (real color palette)
 colorTool.addEventListener("click", () => {
   if (!selectedElement) return alert("Select an element first!");
-  const newColor = prompt("Enter color (e.g. red, #ff0000):", "#000000");
-  if (newColor) {
-    selectedElement.style.color = newColor;
+  const colorInput = document.createElement("input");
+  colorInput.type = "color";
+  colorInput.style.position = "fixed";
+  colorInput.style.top = "10px";
+  colorInput.style.right = "10px";
+  colorInput.style.zIndex = "99999";
+
+  colorInput.addEventListener("input", (e) => {
+    selectedElement.style.color = e.target.value;
+  });
+
+  colorInput.addEventListener("change", () => {
     saveHistory();
-  }
+    colorInput.remove();
+  });
+
+  document.body.appendChild(colorInput);
+  colorInput.click();
 });
 
-// Image Tool
+// Image Tool (open file explorer)
 imageTool.addEventListener("click", () => {
   if (!selectedElement || selectedElement.tagName !== "IMG") {
     return alert("Select an image first!");
   }
-  const newSrc = prompt("Enter new image URL:", selectedElement.src);
-  if (newSrc) {
-    selectedElement.src = newSrc;
-    saveHistory();
-  }
+
+  const fileInput = document.createElement("input");
+  fileInput.type = "file";
+  fileInput.accept = "image/*";
+  fileInput.style.display = "none";
+
+  fileInput.addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        selectedElement.src = ev.target.result; // Replace with uploaded image
+        saveHistory();
+      };
+      reader.readAsDataURL(file);
+    }
+  });
+
+  document.body.appendChild(fileInput);
+  fileInput.click();
+  fileInput.remove();
 });
 
 // Button Tool
@@ -133,20 +219,13 @@ buttonTool.addEventListener("click", () => {
 
   iframeDoc.body.appendChild(newBtn);
   saveHistory();
-
-  newBtn.addEventListener("click", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (selectedElement) selectedElement.style.outline = "";
-    selectedElement = newBtn;
-    selectedElement.style.outline = "2px solid red";
-  });
 });
 
 // Select Tool
 selectTool.addEventListener("click", () => {
   if (selectedElement) {
     selectedElement.style.outline = "";
+    removeResizeHandle(selectedElement);
     selectedElement = null;
   }
 });
