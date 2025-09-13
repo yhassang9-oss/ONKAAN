@@ -1,487 +1,184 @@
-// engine.js - Website editor with text editing, color picker, image upload, button creation, and tool selection highlighting
-// Requires toolbar IDs: textTool, selecttool, undo, redo, color, image, Buttons, savePageBtn
-// and an iframe with id="previewFrame" whose document contains the editable template (#editor-area)
-
-// DOM elements
+// =======================
+// Globals
+// =======================
+let selectedElement = null;
+let undoStack = [];
+let redoStack = [];
 const previewFrame = document.getElementById("previewFrame");
+
+// Tool buttons
+const textTool = document.getElementById("textTool");
+const selectTool = document.getElementById("selectTool");
+const colorTool = document.getElementById("colorTool");
+const imageTool = document.getElementById("imageTool");
+const buttonTool = document.getElementById("buttonTool");
 const undoBtn = document.getElementById("undo");
 const redoBtn = document.getElementById("redo");
-const textTool = document.getElementById("textTool");
-const colorTool = document.getElementById("color");
-const imageTool = document.getElementById("image");
-const buttonTool = document.getElementById("Buttons");
-const selectTool = document.getElementById("selecttool");
-const savePageBtn = document.getElementById("savePageBtn");
 
-// State
-let selectedElement = null;       // DOM element inside iframe
-let selectedWrapper = null;       // Wrapper element inside iframe
-let history = [];
-let historyIndex = -1;
-let colorPanelParent = null;      // Color panel element in iframe doc
-let currentTool = null;           // Currently selected tool (null or button element)
+// Panels
+let colorPanel, imagePanel;
 
-// Helpers: Access iframe document and editor container
-function getIframeDoc() {
-  try {
-    return previewFrame.contentDocument || previewFrame.contentWindow.document;
-  } catch (err) {
-    console.warn("Cannot access iframe document (cross-origin?):", err);
-    alert("Error: Iframe content is not accessible. Ensure it’s hosted on the same domain.");
-    return null;
-  }
+// =======================
+// Helpers
+// =======================
+function saveState() {
+  if (!previewFrame.contentDocument) return;
+  undoStack.push(previewFrame.contentDocument.body.innerHTML);
+  redoStack = [];
 }
 
-function getEditorContainer() {
-  const doc = getIframeDoc();
-  return doc ? (doc.getElementById("editor-area") || doc.body) : null;
+function restoreState(state) {
+  if (!previewFrame.contentDocument) return;
+  previewFrame.contentDocument.body.innerHTML = state;
+  attachIframeListeners(previewFrame.contentDocument);
 }
 
-// Inject CSS for wrapper elements into iframe
-function injectEditorStyles() {
-  const doc = getIframeDoc();
-  if (!doc) return;
-  const style = doc.createElement("style");
-  style.textContent = `
-    .onkaan-resizable {
-      position: relative;
-      box-sizing: border-box;
-      min-width: 20px;
-      min-height: 20px;
-      outline: 2px solid transparent;
-      transition: outline 0.2s;
-    }
-    .onkaan-resizable:hover {
-      outline-color: rgba(33, 150, 243, 0.3);
-    }
-  `;
-  doc.head.appendChild(style);
+function undo() {
+  if (undoStack.length === 0) return;
+  const state = undoStack.pop();
+  redoStack.push(previewFrame.contentDocument.body.innerHTML);
+  restoreState(state);
 }
 
-// --------------------- HISTORY ---------------------
-function saveHistory() {
-  const doc = getIframeDoc();
-  if (!doc) return;
-  try {
-    // Ensure wrapper styles are inline
-    if (selectedWrapper) {
-      selectedWrapper.style.width = selectedWrapper.style.width || `${selectedWrapper.offsetWidth}px`;
-      selectedWrapper.style.height = selectedWrapper.style.height || `${selectedWrapper.offsetHeight}px`;
-      selectedWrapper.style.left = selectedWrapper.style.left || `${selectedWrapper.offsetLeft}px`;
-      selectedWrapper.style.top = selectedWrapper.style.top || `${selectedWrapper.offsetTop}px`;
-    }
-    const content = getEditorContainer().innerHTML;
-    history = history.slice(0, historyIndex + 1);
-    history.push(content);
-    historyIndex++;
-    localStorage.setItem("onkaan-history", JSON.stringify(history));
-    localStorage.setItem("onkaan-historyIndex", String(historyIndex));
-  } catch (err) {
-    console.warn("Failed to save history:", err);
-  }
-}
-
-function loadHistory(index) {
-  const doc = getIframeDoc();
-  if (!doc || index < 0 || index >= history.length) return;
-  try {
-    getEditorContainer().innerHTML = history[index];
-    historyIndex = index;
-    localStorage.setItem("onkaan-historyIndex", String(historyIndex));
-    selectedElement = null;
-    selectedWrapper = null;
-    attachIframeListeners(doc);
-  } catch (err) {
-    console.warn("Failed to load history:", err);
-  }
-}
-
-function restoreSavedHistoryOnLoad() {
-  try {
-    const saved = JSON.parse(localStorage.getItem("onkaan-history") || "[]");
-    let savedIndex = parseInt(localStorage.getItem("onkaan-historyIndex") || "-1", 10);
-    if (Array.isArray(saved) && saved.length > 0 && savedIndex >= 0 && savedIndex < saved.length) {
-      history = saved;
-      historyIndex = savedIndex;
-      const doc = getIframeDoc();
-      if (doc) {
-        getEditorContainer().innerHTML = history[historyIndex];
-        return true;
-      }
-    }
-  } catch (err) {
-    console.warn("Failed to restore history:", err);
-  }
-  return false;
-}
-
-// --------------------- WRAPPER ---------------------
-function wrapElementForResize(el) {
-  if (!el || !el.ownerDocument) return null;
-  const doc = el.ownerDocument;
-  if (el.closest && el.closest(".onkaan-resizable")) {
-    return el.closest(".onkaan-resizable");
-  }
-
-  const wrapper = doc.createElement("div");
-  wrapper.className = "onkaan-resizable";
-  wrapper.style.display = getComputedStyle(el).display === "inline" ? "inline-block" : getComputedStyle(el).display || "block";
-  wrapper.style.position = "relative";
-  wrapper.style.boxSizing = "border-box";
-
-  const parentRect = el.parentElement.getBoundingClientRect();
-  const rect = el.getBoundingClientRect();
-  wrapper.style.width = `${rect.width}px`;
-  wrapper.style.height = `${rect.height}px`;
-  wrapper.style.left = `${rect.left - parentRect.left}px`;
-  wrapper.style.top = `${rect.top - parentRect.top}px`;
-
-  el.parentNode.insertBefore(wrapper, el);
-  wrapper.appendChild(el);
-
-  if (el.tagName === "IMG") {
-    el.style.width = "100%";
-    el.style.height = "100%";
-    el.style.display = "block";
-    el.style.objectFit = "contain";
-  }
-
-  return wrapper;
+function redo() {
+  if (redoStack.length === 0) return;
+  const state = redoStack.pop();
+  undoStack.push(previewFrame.contentDocument.body.innerHTML);
+  restoreState(state);
 }
 
 function clearSelection() {
   if (selectedElement) {
-    try { selectedElement.style.outline = ""; } catch (err) {}
+    selectedElement.style.outline = "";
+    selectedElement = null;
   }
-  selectedElement = null;
-  selectedWrapper = null;
 }
 
-// --------------------- IFRAME LISTENERS ---------------------
+// =======================
+// Tool Actions
+// =======================
+function addText() {
+  const doc = previewFrame.contentDocument;
+  const p = doc.createElement("p");
+  p.textContent = "New Text";
+  p.style.padding = "4px";
+  doc.body.appendChild(p);
+  saveState();
+}
+
+function addButton() {
+  const doc = previewFrame.contentDocument;
+  const btn = doc.createElement("button");
+  btn.textContent = "Click Me";
+  btn.style.padding = "6px 12px";
+  btn.style.margin = "4px";
+  doc.body.appendChild(btn);
+  saveState();
+}
+
+function showColorPanel() {
+  if (!colorPanel) {
+    colorPanel = document.createElement("div");
+    colorPanel.className = "onkaan-tool-panel";
+    const input = document.createElement("input");
+    input.type = "color";
+    input.addEventListener("input", () => {
+      if (selectedElement) {
+        selectedElement.style.backgroundColor = input.value;
+        saveState();
+      }
+    });
+    colorPanel.appendChild(input);
+    document.body.appendChild(colorPanel);
+  }
+  colorPanel.style.display = "block";
+}
+
+function showImagePanel() {
+  if (!imagePanel) {
+    imagePanel = document.createElement("div");
+    imagePanel.className = "onkaan-tool-panel";
+    const input = document.createElement("input");
+    input.type = "text";
+    input.placeholder = "Enter Image URL";
+    const addBtn = document.createElement("button");
+    addBtn.textContent = "Add";
+    addBtn.addEventListener("click", () => {
+      if (!input.value) return;
+      const doc = previewFrame.contentDocument;
+      const img = doc.createElement("img");
+      img.src = input.value;
+      img.style.maxWidth = "200px";
+      img.style.display = "block";
+      if (selectedElement && selectedElement.tagName === "IMG") {
+        selectedElement.src = input.value; // replace
+      } else {
+        doc.body.appendChild(img); // add new
+      }
+      saveState();
+    });
+    imagePanel.appendChild(input);
+    imagePanel.appendChild(addBtn);
+    document.body.appendChild(imagePanel);
+  }
+  imagePanel.style.display = "block";
+}
+
+// =======================
+// Iframe Listeners
+// =======================
 function attachIframeListeners(iframeDoc) {
   if (!iframeDoc) return;
+
+  // Prevent duplicate
   if (iframeDoc._onkaanHandler) {
     iframeDoc.removeEventListener("click", iframeDoc._onkaanHandler, true);
   }
 
   iframeDoc._onkaanHandler = function (e) {
+    // Prevent selecting tool panels
+    if (e.target.closest(".onkaan-tool-panel")) return;
+
     e.preventDefault();
     e.stopPropagation();
 
-    // Find closest selectable element, excluding non-editable elements
     let target = e.target;
-    while (target && target !== iframeDoc && (
-      target.tagName === "HTML" ||
-      target.tagName === "BODY"
-    )) {
+    while (
+      target &&
+      target !== iframeDoc &&
+      (target.tagName === "HTML" || target.tagName === "BODY")
+    ) {
       target = target.parentElement;
     }
 
-    // If no valid target, clear selection
-    if (!target || target === iframeDoc || target === iframeDoc.body) {
-      clearSelection();
-      return;
-    }
-
-    // Select the target element
     clearSelection();
-    selectedElement = target;
-    try { selectedElement.style.outline = "2px solid #2196F3"; } catch (err) {
-      console.warn("Failed to set outline:", err);
+    if (target && target !== iframeDoc && target !== iframeDoc.body) {
+      selectedElement = target;
+      selectedElement.style.outline = "2px solid #2196f3";
     }
-    selectedWrapper = wrapElementForResize(selectedElement);
   };
 
-  iframeDoc.addEventListener("click", iframeDoc._onkaanHandler, { capture: true, passive: false });
+  iframeDoc.addEventListener("click", iframeDoc._onkaanHandler, true);
 }
 
-// --------------------- IFRAME LOAD ---------------------
-function initializeIframe() {
-  const doc = getIframeDoc();
-  if (!doc || doc.readyState !== "complete") {
-    setTimeout(initializeIframe, 100);
-    return;
-  }
-
-  injectEditorStyles();
-  if (!restoreSavedHistoryOnLoad()) {
-    saveHistory();
+// =======================
+// Init
+// =======================
+previewFrame.addEventListener("load", () => {
+  const doc = previewFrame.contentDocument;
+  if (!doc.body.innerHTML.trim()) {
+    doc.body.innerHTML = "<p>Welcome! Add elements.</p>";
   }
   attachIframeListeners(doc);
-  clearSelection();
-}
+  saveState();
+});
 
-previewFrame.addEventListener("load", initializeIframe);
-
-// --------------------- TOOL HIGHLIGHTING ---------------------
-function toggleToolSelection(button) {
-  if (currentTool === button) {
-    // Deselect: Restore original background and clear currentTool
-    button.style.backgroundColor = button.dataset.originalBg || "";
-    currentTool = null;
-  } else {
-    // Select: Set blue background and store original
-    if (currentTool) {
-      currentTool.style.backgroundColor = currentTool.dataset.originalBg || "";
-    }
-    if (!button.dataset.originalBg) {
-      button.dataset.originalBg = getComputedStyle(button).backgroundColor;
-    }
-    button.style.backgroundColor = "#2196F3";
-    currentTool = button;
-  }
-}
-
-// --------------------- TOOLS ---------------------
-if (undoBtn) {
-  undoBtn.addEventListener("click", () => {
-    toggleToolSelection(undoBtn);
-    if (historyIndex > 0) {
-      loadHistory(historyIndex - 1);
-    }
-    // Deselect after action
-    undoBtn.style.backgroundColor = undoBtn.dataset.originalBg || "";
-    currentTool = null;
-  });
-}
-
-if (redoBtn) {
-  redoBtn.addEventListener("click", () => {
-    toggleToolSelection(redoBtn);
-    if (historyIndex < history.length - 1) {
-      loadHistory(historyIndex + 1);
-    }
-    // Deselect after action
-    redoBtn.style.backgroundColor = redoBtn.dataset.originalBg || "";
-    currentTool = null;
-  });
-}
-
-if (textTool) {
-  textTool.addEventListener("click", () => {
-    toggleToolSelection(textTool);
-    if (!selectedElement) {
-      alert("Select an element first!");
-      return;
-    }
-    try {
-      selectedElement.contentEditable = "true";
-      selectedElement.focus();
-      const onBlur = () => {
-        selectedElement.contentEditable = "false";
-        selectedElement.removeEventListener("blur", onBlur);
-        saveHistory();
-        // Deselect tool after action
-        textTool.style.backgroundColor = textTool.dataset.originalBg || "";
-        currentTool = null;
-      };
-      selectedElement.addEventListener("blur", onBlur);
-    } catch (err) {
-      const txt = prompt("Edit text:", selectedElement.textContent);
-      if (txt !== null) {
-        selectedElement.textContent = txt;
-        saveHistory();
-        // Deselect tool after action
-        textTool.style.backgroundColor = textTool.dataset.originalBg || "";
-        currentTool = null;
-      }
-    }
-  });
-}
-
-if (colorTool) {
-  colorTool.addEventListener("click", () => {
-    toggleToolSelection(colorTool);
-    if (!selectedElement) {
-      alert("Select an element first!");
-      return;
-    }
-    const doc = getIframeDoc();
-    if (!doc) return;
-    if (colorPanelParent) {
-      colorPanelParent.remove();
-      colorPanelParent = null;
-      // Deselect tool when closing panel
-      colorTool.style.backgroundColor = colorTool.dataset.originalBg || "";
-      currentTool = null;
-      return;
-    }
-
-    const panel = doc.createElement("div");
-    panel.style.position = "fixed";
-    panel.style.top = "16px";
-    panel.style.right = "16px";
-    panel.style.zIndex = "2147483647";
-    panel.style.background = "#fff";
-    panel.style.border = "1px solid #ccc";
-    panel.style.padding = "8px";
-    panel.style.boxShadow = "0 2px 10px rgba(0,0,0,0.15)";
-    panel.style.display = "flex";
-    panel.style.alignItems = "center";
-    panel.style.gap = "8px";
-
-    const input = doc.createElement("input");
-    input.type = "color";
-    try {
-      const cs = getComputedStyle(selectedElement);
-      input.value = rgbToHex(cs.color) || "#000000";
-    } catch (err) {}
-
-    input.addEventListener("input", (ev) => {
-      const color = ev.target.value;
-      const tag = selectedElement.tagName;
-      if (tag === "DIV" || tag === "SECTION" || tag === "HEADER" || tag === "FOOTER" || selectedElement.classList.contains("product-box")) {
-        try { selectedElement.style.backgroundColor = color; } catch (err) {}
-      } else {
-        try { selectedElement.style.color = color; } catch (err) {}
-      }
-    });
-
-    const okBtn = doc.createElement("button");
-    okBtn.textContent = "OK";
-    okBtn.style.padding = "6px 10px";
-    okBtn.style.cursor = "pointer";
-    okBtn.addEventListener("click", () => {
-      saveHistory();
-      panel.remove();
-      colorPanelParent = null;
-      // Deselect tool after action
-      colorTool.style.backgroundColor = colorTool.dataset.originalBg || "";
-      currentTool = null;
-    });
-
-    const cancelBtn = doc.createElement("button");
-    cancelBtn.textContent = "Cancel";
-    cancelBtn.style.padding = "6px 10px";
-    cancelBtn.style.cursor = "pointer";
-    cancelBtn.addEventListener("click", () => {
-      if (historyIndex >= 0) loadHistory(historyIndex);
-      panel.remove();
-      colorPanelParent = null;
-      // Deselect tool after action
-      colorTool.style.backgroundColor = colorTool.dataset.originalBg || "";
-      currentTool = null;
-    });
-
-    panel.appendChild(input);
-    panel.appendChild(okBtn);
-    panel.appendChild(cancelBtn);
-    doc.body.appendChild(panel);
-    colorPanelParent = panel;
-    input.focus();
-    input.click();
-  });
-}
-
-if (imageTool) {
-  imageTool.addEventListener("click", () => {
-    toggleToolSelection(imageTool);
-    if (!selectedElement || selectedElement.tagName !== "IMG") {
-      alert("Select an image element first!");
-      return;
-    }
-    const fileInput = document.createElement("input");
-    fileInput.type = "file";
-    fileInput.accept = "image/*";
-    fileInput.style.display = "none";
-    document.body.appendChild(fileInput);
-
-    fileInput.addEventListener("change", (ev) => {
-      const file = fileInput.files[0];
-      if (!file) {
-        fileInput.remove();
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          selectedElement.src = e.target.result;
-          saveHistory();
-          // Deselect tool after action
-          imageTool.style.backgroundColor = imageTool.dataset.originalBg || "";
-          currentTool = null;
-        } catch (err) {
-          alert("Failed to set image. Ensure the iframe allows data URLs or use a hosted image URL.");
-          console.error("Image upload error:", err);
-        }
-        fileInput.remove();
-      };
-      reader.readAsDataURL(file);
-    });
-
-    fileInput.click();
-  });
-}
-
-if (buttonTool) {
-  buttonTool.addEventListener("click", () => {
-    toggleToolSelection(buttonTool);
-    const doc = getIframeDoc();
-    const container = getEditorContainer();
-    if (!doc || !container) return;
-    const btn = doc.createElement("button");
-    btn.textContent = "Buy Now";
-    btn.style.padding = "8px 12px";
-    btn.style.margin = "6px";
-    btn.style.background = "#111";
-    btn.style.color = "#fff";
-    btn.style.border = "none";
-    btn.style.borderRadius = "4px";
-    btn.style.cursor = "pointer";
-    container.appendChild(btn);
-    clearSelection();
-    selectedElement = btn;
-    selectedElement.style.outline = "2px solid #2196F3";
-    selectedWrapper = wrapElementForResize(selectedElement);
-    saveHistory();
-    // Deselect tool after action
-    buttonTool.style.backgroundColor = buttonTool.dataset.originalBg || "";
-    currentTool = null;
-  });
-}
-
-if (selectTool) {
-  selectTool.addEventListener("click", () => {
-    if (currentTool === selectTool) {
-      selectTool.style.backgroundColor = selectTool.dataset.originalBg || "";
-      currentTool = null;
-    } else {
-      toggleToolSelection(selectTool);
-    }
-    clearSelection();
-  });
-}
-
-if (savePageBtn) {
-  savePageBtn.addEventListener("click", () => {
-    toggleToolSelection(savePageBtn);
-    const doc = getIframeDoc();
-    if (!doc) return;
-    const html = "<!DOCTYPE html>\n<html>\n" + doc.documentElement.innerHTML + "\n</html>";
-    const blob = new Blob([html], { type: "text/html" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "page.html";
-    a.click();
-    URL.revokeObjectURL(url);
-    // Deselect tool after action
-    savePageBtn.style.backgroundColor = savePageBtn.dataset.originalBg || "";
-    currentTool = null;
-  });
-}
-
-// Helper: Convert rgb color to hex
-function rgbToHex(rgb) {
-  const match = rgb.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
-  if (!match) return null;
-  const r = parseInt(match[1]).toString(16).padStart(2, "0");
-  const g = parseInt(match[2]).toString(16).padStart(2, "0");
-  const b = parseInt(match[3]).toString(16).padStart(2, "0");
-  return `#${r}${g}${b}`;
-}
-
-// Initialize
-if (previewFrame && getIframeDoc()?.readyState === "complete") {
-  initializeIframe();
-}
+// =======================
+// Bind Events
+// =======================
+textTool.addEventListener("click", addText);
+buttonTool.addEventListener("click", addButton);
+colorTool.addEventListener("click", showColorPanel);
+imageTool.addEventListener("click", showImagePanel);
+undoBtn.addEventListener("click", undo);
+redoBtn.addEventListener("click", redo);
