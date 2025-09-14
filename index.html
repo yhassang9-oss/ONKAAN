@@ -13,7 +13,7 @@
     <nav>
       <a href="#features">Features</a>
       <a href="#howitworks">How It Works</a>
-      <a href="#templates">Templates</a>
+      <a href="#templates">XYZ</a>
       <a href="#contact">Contact</a>
     </nav>
   </header>
@@ -21,8 +21,8 @@
   <!-- Hero Section -->
   <section id="hero">
     <h1>Launch Your Store Today</h1>
-    <p>Free setup. No monthly fees. Just <strong>3% commission per sale</strong>.</p>
-    <a href="account.html" class="btn">🚀 Get Started</a>
+    <p>Create your store in minutes — <strong>free to use</strong>.</p>
+    <a href="account.html" class="btn">Get Started</a>
   </section>
 
   <!-- Features -->
@@ -60,20 +60,26 @@
 
   <!-- Templates Showcase -->
   <section id="templates">
-    <h2>Pick Your Template</h2>
-    <div class="templates-grid">
-      <div class="template-card">Template 1 (Amazon Style)</div>
-      <div class="template-card">Template 2</div>
-      <div class="template-card">Template 3</div>
-      <div class="template-card">Template 4</div>
-      <div class="template-card">Template 5</div>
-    </div>
+
   </section>
 
   <!-- Footer -->
   <footer id="contact">
     <p>© 2025 ONKAAN. All Rights Reserved.</p>
     <p>Contact: support@onkaan.com</p>
+    <script>document.addEventListener('DOMContentLoaded', () => {
+  const animateElements = document.querySelectorAll('[data-animate], .step');
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+      }
+    });
+  }, { threshold: 0.2 });
+
+  animateElements.forEach(el => observer.observe(el));
+});</script>
   </footer>
 </body>
 </html>
